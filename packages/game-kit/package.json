@@ -1,0 +1,14 @@
+{
+  "name": "@zekel/game-kit",
+  "version": "0.1.0",
+  "description": "The interface a zekel game implements (Game, SessionState, GameError) and the shared helpers games may use.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+  },
+  "files": ["dist"],
+  "publishConfig": { "access": "public" },
+  "engines": { "node": ">=22.13.0" }
+}

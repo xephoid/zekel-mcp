@@ -1,0 +1,1024 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "create_session": {
+      "$ref": "#/definitions/CreateSessionResult"
+    },
+    "get_legal_moves": {
+      "$ref": "#/definitions/LegalMovesResult"
+    },
+    "apply_move": {
+      "$ref": "#/definitions/ApplyMoveResult"
+    },
+    "get_ai_move": {
+      "$ref": "#/definitions/GetAiMoveResult"
+    },
+    "run_ai_turn": {
+      "$ref": "#/definitions/RunAiTurnResult"
+    },
+    "get_state": {
+      "$ref": "#/definitions/GetStateResult"
+    }
+  },
+  "required": [
+    "create_session",
+    "get_legal_moves",
+    "apply_move",
+    "get_ai_move",
+    "run_ai_turn",
+    "get_state"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "CreateSessionResult": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "game_id": {
+          "type": "string"
+        },
+        "active_player_id": {
+          "type": "string"
+        },
+        "players_recorded": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PlayerRecorded"
+          }
+        },
+        "initial_state_uri": {
+          "type": "string"
+        },
+        "next_step": {
+          "$ref": "#/definitions/NextStep"
+        },
+        "setup_checklist": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SetupStep"
+          }
+        },
+        "physical_setup": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PhysicalSetupStep"
+          }
+        },
+        "session_context": {
+          "description": "Sent to orchestrated clients only.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SessionContext"
+            }
+          ]
+        },
+        "naming_reminder": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        },
+        "all_ai_reminder": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        },
+        "difficulty_reminder": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        },
+        "rules_briefing": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/RulesBriefing"
+            }
+          ]
+        },
+        "join": {
+          "description": "Present when the session has 2+ human seats.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/JoinInfo"
+            }
+          ]
+        },
+        "agent_guidance": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "game_id",
+        "active_player_id",
+        "players_recorded",
+        "initial_state_uri",
+        "next_step"
+      ],
+      "additionalProperties": {}
+    },
+    "PlayerRecorded": {
+      "type": "object",
+      "properties": {
+        "player_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "human",
+            "ai"
+          ]
+        },
+        "table": {
+          "type": "string",
+          "enum": [
+            "physical",
+            "digital"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "difficulty": {
+          "type": "string",
+          "enum": [
+            "random",
+            "easy",
+            "medium",
+            "hard",
+            "mcts",
+            "hyperon"
+          ]
+        },
+        "strategy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "player_id",
+        "kind"
+      ],
+      "additionalProperties": {}
+    },
+    "NextStep": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "game_over",
+            "ai_to_move",
+            "human_to_move",
+            "awaiting_private_input"
+          ],
+          "description": "awaiting_private_input is a human turn whose answer the other humans must not hear (2+ human seats only)."
+        },
+        "active_player_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "instruction": {
+          "description": "Prose directions for an LLM driving the loop. Sent to llm_driven clients only.",
+          "type": "string"
+        },
+        "human_response": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/HumanResponse"
+            }
+          ]
+        },
+        "facts": {
+          "description": "Sent to orchestrated clients only.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/NextStepFacts"
+            }
+          ]
+        },
+        "seat": {
+          "description": "Present only when a remote device is involved. Sent to orchestrated clients only.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/NextStepSeat"
+            }
+          ]
+        },
+        "shared_session": {
+          "description": "Another device may change the session at any time. Sent to orchestrated clients only.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "active_player_id"
+      ],
+      "additionalProperties": {}
+    },
+    "HumanResponse": {
+      "type": "object",
+      "properties": {
+        "ask": {
+          "type": "string",
+          "description": "What to ask the player, in plain words."
+        },
+        "example": {
+          "type": "string",
+          "description": "How a player might phrase the answer. Not the actual value."
+        },
+        "records_as": {
+          "type": "string",
+          "description": "The move and fields the answer is recorded as."
+        },
+        "private": {
+          "description": "The other humans at the table must not hear the answer. Sent to orchestrated clients only.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ask",
+        "example",
+        "records_as"
+      ],
+      "additionalProperties": {}
+    },
+    "NextStepFacts": {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "description": "The role or phase the acting seat is in.",
+          "type": "string"
+        },
+        "turn_owner_id": {
+          "description": "Whose turn it is, when a different seat is making this choice.",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why this step is owed now.",
+          "type": "string"
+        },
+        "progress": {
+          "description": "Where the step sits in a sequence (\"card 2 of 5\").",
+          "type": "object",
+          "properties": {
+            "current": {
+              "type": "number"
+            },
+            "total": {
+              "type": "number"
+            },
+            "of": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "current",
+            "total"
+          ],
+          "additionalProperties": {}
+        },
+        "repeat": {
+          "description": "When the step repeats, and until what.",
+          "type": "string"
+        },
+        "options": {
+          "description": "The printed options to choose among.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "description": "Other facts needed to answer; one per entry.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": {}
+    },
+    "NextStepSeat": {
+      "type": "object",
+      "properties": {
+        "remote": {
+          "type": "boolean",
+          "description": "The acting seat is played from its own joined device."
+        }
+      },
+      "required": [
+        "remote"
+      ],
+      "additionalProperties": {}
+    },
+    "SetupStep": {
+      "type": "object",
+      "properties": {
+        "move_type": {
+          "type": "string"
+        },
+        "count": {
+          "type": "number"
+        },
+        "description": {
+          "type": "string"
+        },
+        "ask_human_for": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "move_type",
+        "count",
+        "description",
+        "ask_human_for"
+      ],
+      "additionalProperties": {}
+    },
+    "PhysicalSetupStep": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "action"
+            },
+            "text": {
+              "type": "string"
+            },
+            "for_player_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ],
+          "additionalProperties": {}
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "report"
+            },
+            "text": {
+              "type": "string"
+            },
+            "move_type": {
+              "type": "string",
+              "description": "The setup_checklist entry this report belongs to."
+            },
+            "for_player_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "move_type"
+          ],
+          "additionalProperties": {}
+        }
+      ]
+    },
+    "SessionContext": {
+      "type": "object",
+      "properties": {
+        "persona": {
+          "type": "string"
+        },
+        "rules_context": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "RulesBriefing": {
+      "type": "object",
+      "properties": {
+        "for_player": {
+          "type": "string"
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "text"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "teach_note": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "for_player",
+        "sections"
+      ],
+      "additionalProperties": {}
+    },
+    "JoinInfo": {
+      "type": "object",
+      "properties": {
+        "join_code": {
+          "type": "string"
+        },
+        "host_player_id": {
+          "type": "string"
+        },
+        "host_token": {
+          "type": "string",
+          "description": "Keep private; pass as auth_token on the host device."
+        },
+        "open_seats": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "instructions": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "join_code",
+        "host_player_id",
+        "host_token",
+        "open_seats"
+      ],
+      "additionalProperties": {}
+    },
+    "LegalMovesResult": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "player_id": {
+          "type": "string"
+        },
+        "is_their_turn": {
+          "type": "boolean"
+        },
+        "legal_moves": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LegalMove"
+          }
+        },
+        "must_move": {
+          "type": "boolean"
+        },
+        "move_menu": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MoveMenu"
+            }
+          ]
+        },
+        "unavailable_moves": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/UnavailableMove"
+          }
+        },
+        "unavailable_note": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        },
+        "rules_briefing": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/RulesBriefing"
+            }
+          ]
+        },
+        "how_to_apply": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "player_id",
+        "is_their_turn",
+        "legal_moves",
+        "must_move"
+      ],
+      "additionalProperties": {}
+    },
+    "LegalMove": {
+      "type": "object",
+      "properties": {
+        "move_id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "move": {
+          "description": "The game's own move object."
+        },
+        "cost": {
+          "description": "What taking the move spends, in the game's printed words.",
+          "type": "string"
+        },
+        "landing": {
+          "description": "Where the move puts a piece: where it ends and every place it passes, in the game's own location shape.",
+          "type": "object",
+          "properties": {
+            "piece": {
+              "type": "string"
+            },
+            "from": {},
+            "to": {},
+            "path": {
+              "type": "array",
+              "items": {}
+            },
+            "stops": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "required": [
+            "piece",
+            "from",
+            "to",
+            "path"
+          ],
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "move_id",
+        "description",
+        "move"
+      ],
+      "additionalProperties": {}
+    },
+    "MoveMenu": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MoveMenuEntry"
+          }
+        },
+        "total_moves": {
+          "type": "number"
+        },
+        "collapsed": {
+          "type": "boolean"
+        },
+        "free_text_hint": {
+          "type": "string"
+        },
+        "how_to_use": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt",
+        "entries",
+        "total_moves",
+        "collapsed",
+        "free_text_hint"
+      ],
+      "additionalProperties": {}
+    },
+    "MoveMenuEntry": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "move_id": {
+          "description": "Leaf only: the move_id to pass to apply_move.",
+          "type": "string"
+        },
+        "count": {
+          "type": "number"
+        },
+        "group_by": {
+          "type": "string"
+        },
+        "submenu": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MoveMenuEntry"
+          }
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "additionalProperties": {}
+    },
+    "UnavailableMove": {
+      "type": "object",
+      "properties": {
+        "move_type": {
+          "type": "string"
+        },
+        "item": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "rules_section": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "move_type",
+        "reason"
+      ],
+      "additionalProperties": {}
+    },
+    "ApplyMoveResult": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "applied": {
+          "type": "boolean",
+          "const": true
+        },
+        "state_summary": {
+          "type": "string"
+        },
+        "log_entries": {
+          "description": "The game's log entries this move produced (games with a rich log), each with its summary and, for key events, a short headline.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "private_reveals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PrivateReveal"
+          }
+        },
+        "rules_briefing": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/RulesBriefing"
+            }
+          ]
+        },
+        "report_to_human": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        },
+        "next_active_player_id": {
+          "type": "string"
+        },
+        "next_step": {
+          "$ref": "#/definitions/NextStep"
+        },
+        "move_menu": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MoveMenu"
+            }
+          ]
+        },
+        "game_over": {
+          "type": "boolean"
+        },
+        "result": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/GameResult"
+            }
+          ]
+        }
+      },
+      "required": [
+        "session_id",
+        "applied",
+        "state_summary",
+        "next_active_player_id",
+        "next_step",
+        "game_over"
+      ],
+      "additionalProperties": {}
+    },
+    "PrivateReveal": {
+      "type": "object",
+      "properties": {
+        "player_id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "player_id",
+        "text"
+      ],
+      "additionalProperties": {}
+    },
+    "GameResult": {
+      "type": "object",
+      "properties": {
+        "game_over": {
+          "type": "boolean",
+          "const": true
+        },
+        "winners": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scores": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "game_over",
+        "winners",
+        "scores",
+        "summary"
+      ],
+      "additionalProperties": {}
+    },
+    "GetAiMoveResult": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "player_id": {
+          "type": "string"
+        },
+        "move_taken": {},
+        "narration": {
+          "type": "string"
+        },
+        "state_summary": {
+          "type": "string"
+        },
+        "log_entries": {
+          "description": "The game's log entries this move produced (games with a rich log), each with its summary and, for key events, a short headline.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "report_to_human": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        },
+        "next_active_player_id": {
+          "type": "string"
+        },
+        "next_step": {
+          "$ref": "#/definitions/NextStep"
+        },
+        "game_over": {
+          "type": "boolean"
+        },
+        "result": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/GameResult"
+            }
+          ]
+        }
+      },
+      "required": [
+        "session_id",
+        "player_id",
+        "move_taken",
+        "narration",
+        "state_summary",
+        "next_active_player_id",
+        "next_step",
+        "game_over"
+      ],
+      "additionalProperties": {}
+    },
+    "RunAiTurnResult": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "moves_played": {
+          "type": "number"
+        },
+        "moves": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AiMove"
+          }
+        },
+        "report_to_human": {
+          "description": "Sent to llm_driven clients only.",
+          "type": "string"
+        },
+        "next_active_player_id": {
+          "type": "string"
+        },
+        "next_step": {
+          "$ref": "#/definitions/NextStep"
+        },
+        "move_menu": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MoveMenu"
+            }
+          ]
+        },
+        "rules_briefing": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/RulesBriefing"
+            }
+          ]
+        },
+        "game_over": {
+          "type": "boolean"
+        },
+        "result": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/GameResult"
+            }
+          ]
+        },
+        "warning": {
+          "description": "Set when the safety cap on AI moves stopped the call (a bug).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "moves_played",
+        "moves",
+        "next_active_player_id",
+        "next_step",
+        "game_over"
+      ],
+      "additionalProperties": {}
+    },
+    "AiMove": {
+      "type": "object",
+      "properties": {
+        "player_id": {
+          "type": "string"
+        },
+        "move_taken": {},
+        "narration": {
+          "type": "string",
+          "description": "Optional flavour; state_summary is the canonical line."
+        },
+        "state_summary": {
+          "type": "string",
+          "description": "The move in words, written to be read aloud as-is."
+        },
+        "player_views": {
+          "description": "Digital human seats only: each seat’s view as it stood after this move.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "log_entries": {
+          "description": "The game's log entries this move produced (games with a rich log), each with its summary and, for key events, a short headline.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        }
+      },
+      "required": [
+        "player_id",
+        "move_taken",
+        "narration",
+        "state_summary"
+      ],
+      "additionalProperties": {}
+    },
+    "GetStateResult": {
+      "type": "object",
+      "properties": {
+        "next_step": {
+          "$ref": "#/definitions/NextStep"
+        },
+        "log": {
+          "description": "The game's log entries.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "scoreboard": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        },
+        "move_menu": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MoveMenu"
+            }
+          ]
+        },
+        "rules_briefing": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/RulesBriefing"
+            }
+          ]
+        },
+        "state": {
+          "description": "Only when the game view is not an object."
+        }
+      },
+      "required": [
+        "next_step"
+      ],
+      "additionalProperties": {}
+    }
+  }
+}
