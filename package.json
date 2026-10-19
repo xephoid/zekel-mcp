@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "description": "zekel-mcp: a bare MCP server for turn-based board games (sessions, seats, moves; no game rules), plus @zekel/game-kit, the interface games implement.",
+  "license": "Apache-2.0",
   "scripts": {
     "build": "tsc -b packages/game-kit packages/mcp",
     "typecheck": "tsc -b packages/game-kit packages/mcp",

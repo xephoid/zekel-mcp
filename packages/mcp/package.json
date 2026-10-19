@@ -2,14 +2,23 @@
   "name": "@zekel/mcp",
   "version": "0.1.0",
   "description": "A bare MCP server for turn-based board games: sessions, seats, moves, AI turns, multi-device join. Holds no game rules; games are registered from outside.",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
-  "files": ["dist", "schemas"],
-  "publishConfig": { "access": "public" },
+  "files": [
+    "dist",
+    "schemas"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
     "@zekel/game-kit": "workspace:*",
@@ -17,5 +26,7 @@
     "mongodb": "7.3.0",
     "zod": "4.4.3"
   },
-  "engines": { "node": ">=22.13.0" }
+  "engines": {
+    "node": ">=22.13.0"
+  }
 }

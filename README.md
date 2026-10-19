@@ -48,3 +48,7 @@ Beyond the required methods, a game can add its own MCP tools and resources (`ge
 - The instructions text was reworded to take its examples from the author's own games (Sweetlands Imperium, Cybernoir 2127, Neither Guts nor Gears). It has not yet been re-checked against weak models, which read it in every game.
 - Saved sessions carry one version number for the whole server. When a game changes the shape of its saved state, that number has to change for everyone. Each game should version its own state.
 - Only one copy of `@zekel/game-kit` may be installed: the server recognises a game's errors by their type. Game packages should list it as a peer dependency.
+
+## Licence
+
+Licensed under Apache 2.0. See `LICENSE`.
