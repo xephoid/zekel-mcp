@@ -1,0 +1,1733 @@
+[
+  {
+    "instructions": "A library of turn-based board games with playable AI opponents.\n\nCRITICAL: this server assumes the human player has a PHYSICAL copy of the game in front of them — physical cards, a board, etc. — fully set up and ready to play. You are NOT running a virtual game on the human's behalf. The human shuffles their own deck, draws their own hand, and plays cards on a real table. You are (a) the bookkeeper for shared state and (b) the brain for the AI opponent. The human's hand and deck contents are private; trust their declarations about what they played. If they don't seem to have the physical game, recommend they get it out before continuing.\n\nTool usage: list_games to discover games, create_session to start one (the response includes per-game agent_guidance — READ IT before doing anything else), get_rules to fetch a game's full rules text and card / piece catalog (CALL THIS instead of guessing how anything works), get_legal_moves + apply_move to play, get_ai_move to let the server play one AI move, or run_ai_turn to play an AI through its whole turn (and any following AI turns) in a single call — prefer run_ai_turn for advancing AI play. Read game state via get_state or via the game://{game_id}/sessions/{session_id}/player/{player_id} resource.\n\nTHE SERVER IS THE RULES ENGINE — DO NOT SIMULATE THE GAME YOURSELF. You never decide whether a move is legal, compute damage or scores, roll the AI's dice, resolve a card's effect, or decide whose turn comes next. The server does ALL of that. Your only jobs are: (a) relay the human's declared move to apply_move, (b) call get_ai_move on AI turns, and (c) report the summaries the tools hand back. If you ever catch yourself about to work out a game outcome in your head, STOP and call the tool instead — your own arithmetic is not authoritative and will corrupt the shared state.\n\nFOLLOW next_step — IT IS THE SOURCE OF TRUTH, NOT YOUR MEMORY. Every apply_move / get_ai_move / run_ai_turn response carries a next_step object telling you exactly whose turn it is and what to do next — obey it. If you are ever unsure who acts, whether an AI turn is finished, or what comes next, call get_state and read its next_step. Reporting a move is NOT a stopping point. Two things models get wrong:\n  - get_ai_move COMPUTES AND APPLIES one move by itself — never follow it with an apply_move for that same move (that applies it twice and corrupts state).\n  - One get_ai_move is ONE move, not a whole turn (an AI turn is usually several). Keep calling it while next_step still shows that AI as active; stop only when next_step says a human is up or the game is over. The most common failure is stopping early mid-AI-turn — prefer run_ai_turn, which plays the AI's whole turn in one call.\n\nRECOVER FROM REJECTED MOVES — DO NOT RETRY BLINDLY. When apply_move or get_ai_move returns an error, the response carries a recovery object. If it includes your_legal_moves, the move you sent was bad: pick one of those entries and resend it EXACTLY as the move argument (copy the object verbatim) — do not resend the rejected move or guess a new shape. Otherwise follow recovery.next_step. If you still cannot form a legal move, relay the error to the human and ask what they meant rather than inventing a request.\n\nONE ACTION PER MOVE — DO NOT CHAIN TURN STEPS FROM MEMORY. Each apply_move (and each get_ai_move) is exactly ONE complete action, and most games take exactly one action per turn. Do NOT assemble a multi-step turn from your own knowledge of the rules (e.g. \"draw a card, THEN attack\", or \"play a card and then buy\") — many actions END the turn by themselves, and guessing wrong desyncs you from the server. After every move, the next_step field tells you who acts next and what is expected; obey it. If you are unsure which actions a player may take right now, the authoritative list is get_legal_moves for that player — never reconstruct the set of legal actions, or the order they happen in, from memory.\n\nUSE THIS SESSION'S VALUES, NOT YOUR GENERAL KNOWLEDGE. Quantities like setup counts, prune sizes, starting hand size, supply size, player count, and card stats can differ from the printed defaults you may remember, and they vary with THIS session's configuration (player count, options). Never recite such a number from memory — read it from this session's tool responses: the create_session response (including its setup_checklist and any notable/setup fields), get_state, and get_rules. When create_session returns a setup_checklist, walk it step by step and ask the human for exactly the value each step names. If a number is not in a tool response, look it up with get_rules or ask the human — do not fill it in from what you think the rules say.\n\nDON'T INVENT MOVE SHAPES OR IDS — TAKE THEM FROM get_legal_moves. To record an action, call get_legal_moves, find the entry whose description matches what the human declared, and submit it by its move_id (the server expands it — you never build the object) or by copying that entry's `move` object VERBATIM. Identify cards, spaces, leaders, tiles, and options by the printed NAME the human reads off the component (\"Burton-on-Trent\", \"Shipping Interest\", \"Pottery\") — the server accepts names. Never use an internal id/key/spelling you remember (\"L136\", \"guild-shipping-interest\", \"loc:burtonOnTrent\") or assemble a move shape field-by-field from memory: a wrong id or invented field gets the move REJECTED, and the human's action then silently fails to record — drifting your tracked state from their real board for turns before anyone notices. When several entries match, pick the one matching the human's stated options (beer source, merchant, target, level).\n  - EXCEPTION — fill-in reports: when a move carries a value only the human can know (a die they rolled, a card they drew), its get_legal_moves entry is a TEMPLATE with placeholder values and its description says to fill it. Put the real value the human gave you into the `move` object and submit the FULL object — a move_id alone would record the placeholder.\n  - If you cannot see the exact id/shape/value to use, read it from get_state / get_legal_moves / get_rules' move_schema, or ask the human — never guess.\n\nOFFER THE move_menu SO THE HUMAN CAN JUST TYPE A NUMBER. When it is a human's turn, responses carry a move_menu: a numbered rendering of their legal moves built to minimise typing. PRESENT IT to the human as a short numbered list (entry key + label) and let them reply with just the number. If collapsed is true the list was too long to show at once, so it is grouped into CATEGORIES: show only the top level first, and when they pick a category (an entry with a submenu) show that submenu as the next numbered list — never dump every option at once. When they pick a leaf (an entry with a move_id), submit that move_id via apply_move. The human need not use the numbers — if they instead name the move (a card or location), match it to an entry label or printed name as usual and confirm the resolved move in one line before applying it. The menu reflects only the CURRENT state; use the one on the latest response (or re-fetch get_legal_moves) — keys and move_ids are not stable across moves. The move_menu never changes what is legal: it is just get_legal_moves, made easy to pick from.\n\nRULES TEACHING RIDES THE RESPONSES — RELAY IT, AND ANSWER \"WHY CAN'T I?\" FROM THE SERVER, NEVER FROM MEMORY. Some responses carry a rules_briefing: rules that just became relevant for a seat for the FIRST time this session. Teach them to that player briefly (a sentence or two each, plain words) — the lesson will not repeat. get_legal_moves may also carry unavailable_moves: move types that exist but are blocked right now, each with the live reason (\"needs Strength 2, yours is 1\"). If the human asks to do one of those, or asks why they can't, answer with EXACTLY that reason — do NOT invent a rule from your general knowledge of the game, and do NOT substitute a different move. If a human says they know the game or wants no lessons, call set_session_preferences with teaching=false for their seat (lessons stop; unavailable_moves stays).\n\nREPORTING DEPTH IS TOLD TO YOU PER RESPONSE — OBEY report_to_human. Every apply_move / get_ai_move / run_ai_turn result carries a report_to_human field saying how much to report; obey THAT field rather than deciding depth from this prompt. The two cases it covers:\n  - The human's OWN move (apply_move): confirm briefly — one line on what they declared and what state_summary says changed. Do NOT recite state they can already see (their hand, the cards on the table, the supply, scores/VP, the full rules) or prepend \"current state:\" recaps.\n  - An AI move (get_ai_move / run_ai_turn): the human CANNOT see what the virtual AI did yet must reproduce it on the physical board, so relay EVERY board-changing fact from each move's state_summary completely — what was played, rolled, captured, built, moved, bought, or discarded, WHERE it goes, and any resource/score change. A run_ai_turn covering several moves is several facts, NOT \"the AI took its turn\". Never reveal the AI's hidden HAND — only what it did on the board.\nIn both cases report in PLAIN GAME TERMS using the summaries' own vocabulary (card / action / space / resource / score names) — you are a scorekeeper, not a color commentator: no flavor, no story, no atmosphere, and never a detail the summary did not contain.\n\nCALL EACH AI PLAYER BY ITS COLOR / CHARACTER / FACTION, NOT A GENERIC ID. When this session assigned each seat an identity — a player colour, a faction, a god/character, etc. — refer to an AI opponent by that identity (\"General Fudge played a double Green card\", \"the Detective blocks the play\", \"The Covenant builds an Amphitheatre\"), NOT by a bare player_id like \"player_2\" or an anonymous \"the AI\". That identity is exactly what the human placed on the physical table for that seat (the coloured standee, the god board, the faction pieces), so naming it lets the human map your report to the right pieces and pile instantly — and in a game with more than one AI it is the only way the report is unambiguous. Read the seat-to-identity mapping from THIS session (the assign_setup_choices selections and get_state) — do not guess it. If a seat genuinely has no assigned identity (e.g. a 1v1 game with no colour/character pick), use its player name or id.\n\nNAME THE PLAYERS — ASK HUMANS, NEVER INVENT FOR AI. Before create_session, ASK EACH HUMAN their name and pass it as that seat's `name`; from then on address every human by that name, not \"player 1\" or \"the human\". Do not make up a name for a human — ask. For AI seats do the OPPOSITE: NEVER coin a name or nickname. An AI seat's name is the IDENTITY this session gives it — its colour, faction, god, or CHARACTER, which you READ from the assign_setup_choices selections and get_state, not something you invent. Many games' pieces already have printed names (e.g. the Sweetlands Imperium leaders Princess Jellybean / General Fudge / Arch Duchess of Milkshake) — use those EXACT names and add no others; nicknaming components that already have names desyncs you from what the human sees on the table. Do NOT pass a made-up `name` for an AI seat at create_session; leave it unset so its assigned identity is its name.\n\nCHOOSE AI DIFFICULTY — ASK, DON'T ASSUME. Before create_session, ask the human how challenging they want each AI opponent and pass it as that seat's `difficulty` — one of easy, medium, hard, or mcts (the strongest, search-based AI, where the game supports it). Do NOT silently default to medium or any other level: how hard the opponent plays is the human's call. With more than one AI seat, ask per opponent unless the human wants them all the same. If they have no preference, tell them what the default will be and confirm it rather than assuming. (create_session echoes the resolved difficulty per seat in players_recorded, and returns a difficulty_reminder if you left any AI seat unset — the session is fresh, so re-create with the chosen levels if needed.)\n\nYOU ARE A BOOKKEEPER, NOT A PLAYER OR COACH. The human is playing the game; you are recording the state, reporting events, and running the AI opponent. That means:\n  - DO NOT ask the human what is in their hand. The human can see their own physical cards. You do not need to know; asking creates a leak path (anything the human tells you about their hand could influence later AI move decisions, even unintentionally — this is effectively cheating).\n  - DO NOT offer strategy advice, suggest plays, evaluate the human's decisions, or hint at what they \"should\" do — even when they ask. If they ask for advice, redirect: \"you know your hand best — what looks good?\" A human asking for help is fine; you giving it is not.\n  - DO NOT preview moves the human is considering (\"if you play X, you'll have a Y% chance of capturing Z\"). Just record what they actually played.\n  - DO NOT comment on the human's play quality after the fact (\"nice move\", \"tough break\", \"you should have done X\"). Stay neutral.\n  - DO report the AI's moves in full, calling out every factual mechanic (what was played, what was rolled, what was captured, and where each piece/card goes).\n\nIF YOU APPLY A MOVE THE HUMAN DID NOT CHOOSE, UNDO IT. You apply only the move the human actually declared — never decide their move for them. If you slip and apply something they did not choose, or they say \"undo\" / \"wait, that's not what I meant\", call the `undo` tool. It reverts the human's last move AND any AI moves that followed it in ONE call — so if you applied their move and then ran the AI's turn, a single undo rolls back BOTH; you do not need to undo the AI separately. Then ask what they actually want. undo can be called repeatedly to step further back. Offer it whenever a mistaken move may have been recorded — it is the safety net for exactly this.\n\nSETUP CHOICES BELONG TO THE HUMAN — NEVER PICK THEM SILENTLY. Many games open with a per-player IDENTITY choice that is the human's to make: a standee/player COLOR, a FACTION, a CHARACTER, a GOD, a starting leader, a loadout, a seat. These are NOT yours to assign by default or by seat order. When create_session returns a setup_checklist entry for such a choice (or next_step names a setup assignment move like assign_setup_choices), ASK each human which option they want before you submit — and have the table pick options for any AI seats too. HUMANS CHOOSE FIRST: ask every human their pick before you assign any AI seat, then give each AI one of the REMAINING options — never let an AI take an option before a human has had the choice. Submit exactly what they chose; do NOT default it, randomize it, or decide it for them. Obey next_step and the checklist here just as for any other setup report — the game is blocked on this choice on purpose. (If you do assign one without asking, treat it like any unwanted move: `undo` and ask.)\n\nNEVER INVENT VALUES OR RULES. Do not make up card values, stats, costs, dice results, effects, counts, scores, or how a rule works. Anything you cannot read from a tool response, look up with get_rules (its reference_data has every card/piece definition and its text has the rules); if it is still not there, ask the human to read it off the component. Hallucinated values corrupt the shared state — this is a hard correctness violation, not a minor slip.",
+    "calls": [
+      {
+        "call": "create_session",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:0>",
+            "game_id": "lucky-tic-tac-toe",
+            "active_player_id": "p1",
+            "players_recorded": [
+              {
+                "player_id": "p1",
+                "kind": "human",
+                "name": "Zeke"
+              },
+              {
+                "player_id": "p2",
+                "kind": "ai",
+                "difficulty": "medium"
+              }
+            ],
+            "initial_state_uri": "game://lucky-tic-tac-toe/sessions/<session_id:0>/player/p1",
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "SETUP — assign each player a mark before play begins. FIRST ASK each human (p1) which mark they want; THEN assign each AI seat (p2) one of the marks the humans did NOT take. Each must be distinct. Choose from: X (X (moves first)), O. Send assign_setup_choices{selections:{<player_id>:<mark>, ...}} covering EVERY player. Humans choose first — do NOT pick their marks for them, and never give an AI an option before a human has chosen. (get_legal_moves offers the default map to confirm or edit.)",
+              "human_response": {
+                "ask": "which mark does each player want? Ask each human FIRST, then give each AI seat one of the remaining options. Choose from: X (X (moves first)), O. Each must be distinct.",
+                "example": "I'll take X (moves first) and give the AI O",
+                "records_as": "assign_setup_choices with selections: a map of every player_id to their chosen mark (by name or id)"
+              }
+            },
+            "setup_checklist": [
+              {
+                "move_type": "assign_setup_choices",
+                "count": 1,
+                "description": "Assign each player a mark before the first turn (each distinct, from X/O). Humans choose FIRST — ask each their own; then assign each AI seat one of the REMAINING marks.",
+                "ask_human_for": "each human's chosen mark FIRST (then pick a mark for any AI seat from what's left)"
+              },
+              {
+                "move_type": "report_lucky_card",
+                "count": 1,
+                "description": "Each human at the table draws one lucky-square card in secret and reports it privately.",
+                "ask_human_for": "which lucky-square card they drew (A1 to C3)"
+              }
+            ],
+            "physical_setup": [
+              {
+                "kind": "action",
+                "text": "Shuffle the nine lucky-square cards (A1 to C3) and put them face down."
+              },
+              {
+                "kind": "report",
+                "text": "Draw one lucky-square card and keep it secret.",
+                "move_type": "report_lucky_card",
+                "for_player_id": "p1"
+              }
+            ],
+            "rules_briefing": {
+              "for_player": "p1",
+              "sections": [
+                {
+                  "id": "setup",
+                  "title": "Setup",
+                  "text": "Each player chooses a mark, X or O; X moves first. Shuffle the nine lucky-square cards (A1 to C3). Each player draws one in secret."
+                }
+              ],
+              "teach_note": "FIRST TIME these rules are relevant this session. Briefly teach them to Zeke now (a sentence or two each, plain words) before play continues — this lesson will NOT repeat. If they say they know the game or want no teaching, turn it off with set_session_preferences."
+            },
+            "agent_guidance": "Lucky Tic-Tac-Toe. Setup: players choose X or O (humans first), then each takes a secret lucky-square card. Each turn is exactly one move: put your mark on one empty square. Follow next_step."
+          }
+        }
+      },
+      {
+        "call": "get_state",
+        "response": {
+          "isError": false,
+          "body": {
+            "phase": "choose_marks",
+            "marks": {},
+            "board": {
+              "A1": null,
+              "B1": null,
+              "C1": null,
+              "A2": null,
+              "B2": null,
+              "C2": null,
+              "A3": null,
+              "B3": null,
+              "C3": null
+            },
+            "picture": [
+              ". . .",
+              ". . .",
+              ". . ."
+            ],
+            "lucky_squares": {},
+            "winner": null,
+            "your_lucky_square": null,
+            "log": [],
+            "scoreboard": {
+              "p1": {
+                "marks_placed": 0
+              },
+              "p2": {
+                "marks_placed": 0
+              }
+            },
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "SETUP — assign each player a mark before play begins. FIRST ASK each human (p1) which mark they want; THEN assign each AI seat (p2) one of the marks the humans did NOT take. Each must be distinct. Choose from: X (X (moves first)), O. Send assign_setup_choices{selections:{<player_id>:<mark>, ...}} covering EVERY player. Humans choose first — do NOT pick their marks for them, and never give an AI an option before a human has chosen. (get_legal_moves offers the default map to confirm or edit.)",
+              "human_response": {
+                "ask": "which mark does each player want? Ask each human FIRST, then give each AI seat one of the remaining options. Choose from: X (X (moves first)), O. Each must be distinct.",
+                "example": "I'll take X (moves first) and give the AI O",
+                "records_as": "assign_setup_choices with selections: a map of every player_id to their chosen mark (by name or id)"
+              }
+            },
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Assign marks: Zeke X, the AI O",
+                  "move_id": "marks-default"
+                }
+              ],
+              "total_moves": 1,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            }
+          }
+        }
+      },
+      {
+        "call": "get_legal_moves",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:0>",
+            "player_id": "p1",
+            "is_their_turn": true,
+            "legal_moves": [
+              {
+                "move_id": "marks-default",
+                "description": "Assign marks: Zeke X, the AI O",
+                "move": {
+                  "type": "assign_setup_choices",
+                  "selections": {
+                    "p1": "X",
+                    "p2": "O"
+                  }
+                }
+              }
+            ],
+            "must_move": true,
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Assign marks: Zeke X, the AI O",
+                  "move_id": "marks-default"
+                }
+              ],
+              "total_moves": 1,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            },
+            "how_to_apply": "To make one of these, call apply_move with this player_id and the chosen entry's move_id (the server expands it — you do NOT build a move object). Pick the entry whose description matches the intended action. IMPORTANT: if the chosen move needs a value the human just told you that is NOT already in its `move` (e.g. which hidden cards they drew — the listed entry leaves that field empty), do NOT use move_id; pass the full `move` object with those values filled in instead."
+          }
+        }
+      },
+      {
+        "call": "apply_move",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:0>",
+            "applied": true,
+            "state_summary": "Zeke plays X; the AI plays O.",
+            "log_entries": [
+              {
+                "seq": 1,
+                "turn": 1,
+                "actor": "p1",
+                "category": "setup",
+                "summary": "Zeke plays X; the AI plays O."
+              }
+            ],
+            "report_to_human": "Confirm the human's move briefly — one line restating what they declared and what state_summary says changed. Do NOT recite their hand, the board, the supply, or scores; they can see those.",
+            "next_active_player_id": "p1",
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "ASK Zeke which lucky-square card they drew (A1 to C3) and record it with report_lucky_card. Do NOT invent it.",
+              "human_response": {
+                "ask": "Which lucky-square card did you draw?",
+                "example": "B2",
+                "records_as": "report_lucky_card with square: the card drawn (A1 to C3)"
+              }
+            },
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "I drew the A1 card",
+                  "move_id": "lucky-A1"
+                },
+                {
+                  "key": "2",
+                  "label": "I drew the B1 card",
+                  "move_id": "lucky-B1"
+                },
+                {
+                  "key": "3",
+                  "label": "I drew the C1 card",
+                  "move_id": "lucky-C1"
+                },
+                {
+                  "key": "4",
+                  "label": "I drew the A2 card",
+                  "move_id": "lucky-A2"
+                },
+                {
+                  "key": "5",
+                  "label": "I drew the B2 card",
+                  "move_id": "lucky-B2"
+                },
+                {
+                  "key": "6",
+                  "label": "I drew the C2 card",
+                  "move_id": "lucky-C2"
+                },
+                {
+                  "key": "7",
+                  "label": "I drew the A3 card",
+                  "move_id": "lucky-A3"
+                },
+                {
+                  "key": "8",
+                  "label": "I drew the B3 card",
+                  "move_id": "lucky-B3"
+                },
+                {
+                  "key": "9",
+                  "label": "I drew the C3 card",
+                  "move_id": "lucky-C3"
+                }
+              ],
+              "total_moves": 9,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            },
+            "game_over": false
+          }
+        }
+      },
+      {
+        "call": "apply_move",
+        "response": {
+          "isError": true,
+          "body": {
+            "error_code": "ILLEGAL_MOVE",
+            "message": "A place move is not possible now (phase: lucky_cards).",
+            "recovery": {
+              "next_step": {
+                "status": "human_to_move",
+                "active_player_id": "p1",
+                "instruction": "ASK Zeke which lucky-square card they drew (A1 to C3) and record it with report_lucky_card. Do NOT invent it.",
+                "human_response": {
+                  "ask": "Which lucky-square card did you draw?",
+                  "example": "B2",
+                  "records_as": "report_lucky_card with square: the card drawn (A1 to C3)"
+                }
+              },
+              "your_legal_moves": [
+                {
+                  "move_id": "lucky-A1",
+                  "description": "I drew the A1 card",
+                  "move": {
+                    "type": "report_lucky_card",
+                    "square": "A1"
+                  }
+                },
+                {
+                  "move_id": "lucky-B1",
+                  "description": "I drew the B1 card",
+                  "move": {
+                    "type": "report_lucky_card",
+                    "square": "B1"
+                  }
+                },
+                {
+                  "move_id": "lucky-C1",
+                  "description": "I drew the C1 card",
+                  "move": {
+                    "type": "report_lucky_card",
+                    "square": "C1"
+                  }
+                },
+                {
+                  "move_id": "lucky-A2",
+                  "description": "I drew the A2 card",
+                  "move": {
+                    "type": "report_lucky_card",
+                    "square": "A2"
+                  }
+                },
+                {
+                  "move_id": "lucky-B2",
+                  "description": "I drew the B2 card",
+                  "move": {
+                    "type": "report_lucky_card",
+                    "square": "B2"
+                  }
+                },
+                {
+                  "move_id": "lucky-C2",
+                  "description": "I drew the C2 card",
+                  "move": {
+                    "type": "report_lucky_card",
+                    "square": "C2"
+                  }
+                },
+                {
+                  "move_id": "lucky-A3",
+                  "description": "I drew the A3 card",
+                  "move": {
+                    "type": "report_lucky_card",
+                    "square": "A3"
+                  }
+                },
+                {
+                  "move_id": "lucky-B3",
+                  "description": "I drew the B3 card",
+                  "move": {
+                    "type": "report_lucky_card",
+                    "square": "B3"
+                  }
+                },
+                {
+                  "move_id": "lucky-C3",
+                  "description": "I drew the C3 card",
+                  "move": {
+                    "type": "report_lucky_card",
+                    "square": "C3"
+                  }
+                }
+              ],
+              "hint": "Your move was rejected. Pick one entry from your_legal_moves and resend it EXACTLY as the move argument (copy the move object verbatim). Do not retry the rejected move or invent a different shape."
+            }
+          }
+        }
+      },
+      {
+        "call": "apply_move",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:0>",
+            "applied": true,
+            "state_summary": "Zeke took a lucky-square card (kept secret).\nThe O player was dealt a lucky-square card (kept secret).\nPlay begins. Zeke (X) moves first.",
+            "log_entries": [
+              {
+                "seq": 2,
+                "turn": 1,
+                "actor": "p1",
+                "category": "setup",
+                "summary": "Zeke took a lucky-square card (kept secret)."
+              },
+              {
+                "seq": 3,
+                "turn": 1,
+                "actor": "p2",
+                "category": "setup",
+                "summary": "The O player was dealt a lucky-square card (kept secret)."
+              },
+              {
+                "seq": 4,
+                "turn": 1,
+                "actor": null,
+                "category": "phase",
+                "summary": "Play begins. Zeke (X) moves first."
+              }
+            ],
+            "rules_briefing": {
+              "for_player": "p1",
+              "sections": [
+                {
+                  "id": "placing",
+                  "title": "Placing a mark",
+                  "text": "On your turn, put your mark on any empty square. Squares are named by column (A to C) and row (1 to 3)."
+                },
+                {
+                  "id": "winning",
+                  "title": "Winning",
+                  "text": "Three of your marks in a row, column or diagonal wins. If the board fills first, reveal the lucky cards: a player whose own mark is on their own lucky square wins. If both or neither do, the game is a draw."
+                }
+              ],
+              "teach_note": "FIRST TIME these rules are relevant this session. Briefly teach them to Zeke now (a sentence or two each, plain words) before play continues — this lesson will NOT repeat. If they say they know the game or want no teaching, turn it off with set_session_preferences."
+            },
+            "report_to_human": "Confirm the human's move briefly — one line restating what they declared and what state_summary says changed. Do NOT recite their hand, the board, the supply, or scores; they can see those.",
+            "next_active_player_id": "p1",
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "It is p1's turn (human player). Stop here and wait for them to declare what they played on the physical table, then relay that move with apply_move. Do not act on their behalf or guess their move."
+            },
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Put X on A1",
+                  "move_id": "place-A1"
+                },
+                {
+                  "key": "2",
+                  "label": "Put X on B1",
+                  "move_id": "place-B1"
+                },
+                {
+                  "key": "3",
+                  "label": "Put X on C1",
+                  "move_id": "place-C1"
+                },
+                {
+                  "key": "4",
+                  "label": "Put X on A2",
+                  "move_id": "place-A2"
+                },
+                {
+                  "key": "5",
+                  "label": "Put X on B2",
+                  "move_id": "place-B2"
+                },
+                {
+                  "key": "6",
+                  "label": "Put X on C2",
+                  "move_id": "place-C2"
+                },
+                {
+                  "key": "7",
+                  "label": "Put X on A3",
+                  "move_id": "place-A3"
+                },
+                {
+                  "key": "8",
+                  "label": "Put X on B3",
+                  "move_id": "place-B3"
+                },
+                {
+                  "key": "9",
+                  "label": "Put X on C3",
+                  "move_id": "place-C3"
+                }
+              ],
+              "total_moves": 9,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            },
+            "game_over": false
+          }
+        }
+      },
+      {
+        "call": "apply_move",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:0>",
+            "applied": true,
+            "state_summary": "Zeke puts X on B2. (gained 1 marks placed)",
+            "log_entries": [
+              {
+                "seq": 5,
+                "turn": 1,
+                "actor": "p1",
+                "category": "action",
+                "summary": "Zeke puts X on B2.",
+                "gained": [
+                  {
+                    "resource": "marks placed",
+                    "amount": 1
+                  }
+                ]
+              }
+            ],
+            "report_to_human": "Confirm the human's move briefly — one line restating what they declared and what state_summary says changed. Do NOT recite their hand, the board, the supply, or scores; they can see those.",
+            "next_active_player_id": "p2",
+            "next_step": {
+              "status": "ai_to_move",
+              "active_player_id": "p2",
+              "instruction": "It is p2's turn (AI player). EASIEST: call run_ai_turn for p2 — it plays the AI through its entire turn (and any following AI turns) in ONE call and hands back a summary to report, stopping when a human must act or the game ends. Otherwise call get_ai_move, but note it applies exactly ONE move and an AI turn is usually several moves, so you must keep calling get_ai_move for p2 until next_step reports a human is up or the game is over (reporting a move does NOT end the AI's turn). Either way, do NOT call apply_move for an AI (the server applies AI moves itself). When you report, relay EVERY move's state_summary in order and in full — the human updates the physical board from those facts."
+            },
+            "game_over": false
+          }
+        }
+      },
+      {
+        "call": "run_ai_turn",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:0>",
+            "moves_played": 1,
+            "moves": [
+              {
+                "player_id": "p2",
+                "move_taken": {
+                  "type": "place",
+                  "square": "A1"
+                },
+                "narration": "Put O on A1",
+                "state_summary": "The O player puts O on A1. (gained 1 marks placed)",
+                "log_entries": [
+                  {
+                    "seq": 6,
+                    "turn": 2,
+                    "actor": "p2",
+                    "category": "action",
+                    "summary": "The O player puts O on A1.",
+                    "gained": [
+                      {
+                        "resource": "marks placed",
+                        "amount": 1
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "report_to_human": "REPORT THESE 1 AI MOVE(S) TO THE HUMAN NOW, IN ORDER: for EACH entry in `moves`, relay its `state_summary` IN FULL and verbatim — every board-changing fact (what moved where; who/what was captured, blasted, built, bought, played, moved, drawn or discarded; and every piece / score / resource change) — in plain game terms, nothing omitted and no flavor added, so the human can update their physical board. Do NOT compress an AI turn into a summary like \"the AI took its turn\". Then follow next_step: it is a human's turn — call get_legal_moves for that player and relay their options.",
+            "next_active_player_id": "p1",
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "It is p1's turn (human player). Stop here and wait for them to declare what they played on the physical table, then relay that move with apply_move. Do not act on their behalf or guess their move."
+            },
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Put X on B1",
+                  "move_id": "place-B1"
+                },
+                {
+                  "key": "2",
+                  "label": "Put X on C1",
+                  "move_id": "place-C1"
+                },
+                {
+                  "key": "3",
+                  "label": "Put X on A2",
+                  "move_id": "place-A2"
+                },
+                {
+                  "key": "4",
+                  "label": "Put X on C2",
+                  "move_id": "place-C2"
+                },
+                {
+                  "key": "5",
+                  "label": "Put X on A3",
+                  "move_id": "place-A3"
+                },
+                {
+                  "key": "6",
+                  "label": "Put X on B3",
+                  "move_id": "place-B3"
+                },
+                {
+                  "key": "7",
+                  "label": "Put X on C3",
+                  "move_id": "place-C3"
+                }
+              ],
+              "total_moves": 7,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            },
+            "game_over": false
+          }
+        }
+      },
+      {
+        "call": "get_state",
+        "response": {
+          "isError": false,
+          "body": {
+            "phase": "play",
+            "marks": {
+              "p1": "X",
+              "p2": "O"
+            },
+            "board": {
+              "A1": "O",
+              "B1": null,
+              "C1": null,
+              "A2": null,
+              "B2": "X",
+              "C2": null,
+              "A3": null,
+              "B3": null,
+              "C3": null
+            },
+            "picture": [
+              "O . .",
+              ". X .",
+              ". . ."
+            ],
+            "lucky_squares": {
+              "p1": "hidden",
+              "p2": "hidden"
+            },
+            "winner": null,
+            "your_lucky_square": "C3",
+            "log": [
+              {
+                "seq": 1,
+                "turn": 1,
+                "actor": "p1",
+                "category": "setup",
+                "summary": "Zeke plays X; the AI plays O."
+              },
+              {
+                "seq": 2,
+                "turn": 1,
+                "actor": "p1",
+                "category": "setup",
+                "summary": "Zeke took a lucky-square card (kept secret)."
+              },
+              {
+                "seq": 3,
+                "turn": 1,
+                "actor": "p2",
+                "category": "setup",
+                "summary": "The O player was dealt a lucky-square card (kept secret)."
+              },
+              {
+                "seq": 4,
+                "turn": 1,
+                "actor": null,
+                "category": "phase",
+                "summary": "Play begins. Zeke (X) moves first."
+              },
+              {
+                "seq": 5,
+                "turn": 1,
+                "actor": "p1",
+                "category": "action",
+                "summary": "Zeke puts X on B2.",
+                "gained": [
+                  {
+                    "resource": "marks placed",
+                    "amount": 1
+                  }
+                ]
+              },
+              {
+                "seq": 6,
+                "turn": 2,
+                "actor": "p2",
+                "category": "action",
+                "summary": "The O player puts O on A1.",
+                "gained": [
+                  {
+                    "resource": "marks placed",
+                    "amount": 1
+                  }
+                ]
+              }
+            ],
+            "scoreboard": {
+              "p1": {
+                "marks_placed": 1
+              },
+              "p2": {
+                "marks_placed": 1
+              }
+            },
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "It is p1's turn (human player). Stop here and wait for them to declare what they played on the physical table, then relay that move with apply_move. Do not act on their behalf or guess their move."
+            },
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Put X on B1",
+                  "move_id": "place-B1"
+                },
+                {
+                  "key": "2",
+                  "label": "Put X on C1",
+                  "move_id": "place-C1"
+                },
+                {
+                  "key": "3",
+                  "label": "Put X on A2",
+                  "move_id": "place-A2"
+                },
+                {
+                  "key": "4",
+                  "label": "Put X on C2",
+                  "move_id": "place-C2"
+                },
+                {
+                  "key": "5",
+                  "label": "Put X on A3",
+                  "move_id": "place-A3"
+                },
+                {
+                  "key": "6",
+                  "label": "Put X on B3",
+                  "move_id": "place-B3"
+                },
+                {
+                  "key": "7",
+                  "label": "Put X on C3",
+                  "move_id": "place-C3"
+                }
+              ],
+              "total_moves": 7,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            }
+          }
+        }
+      },
+      {
+        "call": "resource:player",
+        "response": [
+          {
+            "phase": "play",
+            "marks": {
+              "p1": "X",
+              "p2": "O"
+            },
+            "board": {
+              "A1": "O",
+              "B1": null,
+              "C1": null,
+              "A2": null,
+              "B2": "X",
+              "C2": null,
+              "A3": null,
+              "B3": null,
+              "C3": null
+            },
+            "picture": [
+              "O . .",
+              ". X .",
+              ". . ."
+            ],
+            "lucky_squares": {
+              "p1": "hidden",
+              "p2": "hidden"
+            },
+            "winner": null,
+            "your_lucky_square": "C3",
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "It is p1's turn (human player). Stop here and wait for them to declare what they played on the physical table, then relay that move with apply_move. Do not act on their behalf or guess their move."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "calls": [
+      {
+        "call": "create_session",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:1>",
+            "game_id": "lucky-tic-tac-toe",
+            "active_player_id": "p1",
+            "players_recorded": [
+              {
+                "player_id": "p1",
+                "kind": "human",
+                "name": "Zeke"
+              },
+              {
+                "player_id": "p2",
+                "kind": "human",
+                "name": "Ada"
+              }
+            ],
+            "initial_state_uri": "game://lucky-tic-tac-toe/sessions/<session_id:1>/player/p1",
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "SETUP — assign each player a mark before play begins. FIRST ASK each human (p1, p2) which mark they want. Each must be distinct. Choose from: X (X (moves first)), O. Send assign_setup_choices{selections:{<player_id>:<mark>, ...}} covering EVERY player. Humans choose first — do NOT pick their marks for them, and never give an AI an option before a human has chosen. (get_legal_moves offers the default map to confirm or edit.)",
+              "human_response": {
+                "ask": "which mark does each player want? Ask each human FIRST, then give each AI seat one of the remaining options. Choose from: X (X (moves first)), O. Each must be distinct.",
+                "example": "I'll take X (moves first)",
+                "records_as": "assign_setup_choices with selections: a map of every player_id to their chosen mark (by name or id)"
+              }
+            },
+            "setup_checklist": [
+              {
+                "move_type": "assign_setup_choices",
+                "count": 1,
+                "description": "Assign each player a mark before the first turn (each distinct, from X/O). Humans choose FIRST — ask each their own; then assign each AI seat one of the REMAINING marks.",
+                "ask_human_for": "each human's chosen mark FIRST (then pick a mark for any AI seat from what's left)"
+              },
+              {
+                "move_type": "report_lucky_card",
+                "count": 2,
+                "description": "Each human at the table draws one lucky-square card in secret and reports it privately.",
+                "ask_human_for": "which lucky-square card they drew (A1 to C3)"
+              }
+            ],
+            "physical_setup": [
+              {
+                "kind": "action",
+                "text": "Shuffle the nine lucky-square cards (A1 to C3) and put them face down."
+              },
+              {
+                "kind": "report",
+                "text": "Draw one lucky-square card and keep it secret.",
+                "move_type": "report_lucky_card",
+                "for_player_id": "p1"
+              },
+              {
+                "kind": "report",
+                "text": "Draw one lucky-square card and keep it secret.",
+                "move_type": "report_lucky_card",
+                "for_player_id": "p2"
+              }
+            ],
+            "rules_briefing": {
+              "for_player": "p1",
+              "sections": [
+                {
+                  "id": "setup",
+                  "title": "Setup",
+                  "text": "Each player chooses a mark, X or O; X moves first. Shuffle the nine lucky-square cards (A1 to C3). Each player draws one in secret."
+                }
+              ],
+              "teach_note": "FIRST TIME these rules are relevant this session. Briefly teach them to Zeke now (a sentence or two each, plain words) before play continues — this lesson will NOT repeat. If they say they know the game or want no teaching, turn it off with set_session_preferences."
+            },
+            "join": {
+              "join_code": "<join_code:2>",
+              "host_player_id": "p1",
+              "host_token": "<host_token:3>",
+              "open_seats": [
+                "p2"
+              ],
+              "instructions": "This game has 1 open seat(s) a second human can join from another device. Give the other player the join_code \"<join_code:2>\" to enter in join_session (only works while the game is still in setup). KEEP host_token PRIVATE and pass it as auth_token on every one of YOUR calls from now on (it is ignored until someone joins, then it is required). Once a player joins, you (the host) drive the whole game EXCEPT on that player's own turn — when next_step says it is their turn, WAIT for them to play on their device, then continue. YOU ARE NOT THE ONLY DEVICE TALKING TO THIS SESSION: once joined, the remote player applies their own moves directly to the shared session from their device, on their own schedule, without you doing anything. Do not assume the state you last saw still holds — every time your human comes back to you (even just to ask a question), call get_state first and read its next_step fresh rather than reusing what you last remember; the remote player may already have moved. If no one joins, just play normally (hot-seat) — the open seats stay playable by you."
+            },
+            "agent_guidance": "Lucky Tic-Tac-Toe. Setup: players choose X or O (humans first), then each takes a secret lucky-square card. Each turn is exactly one move: put your mark on one empty square. Follow next_step."
+          }
+        }
+      },
+      {
+        "call": "join_session",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:1>",
+            "game_id": "lucky-tic-tac-toe",
+            "player_id": "p2",
+            "claim_token": "<claim_token:4>",
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "SETUP — assign each player a mark before play begins. FIRST ASK each human (p1, p2) which mark they want. Each must be distinct. Choose from: X (X (moves first)), O. Send assign_setup_choices{selections:{<player_id>:<mark>, ...}} covering EVERY player. Humans choose first — do NOT pick their marks for them, and never give an AI an option before a human has chosen. (get_legal_moves offers the default map to confirm or edit.) NOTE: this session is shared with a REMOTE player on a separate device (seatClaims present) — if you are not that seat and this is not naming an action for you to take, do not act; the other device applies its own moves directly to the shared session, invisibly to you, whenever it wants. Never assume the state you last saw is still current — call get_state to refresh it before reporting anything to your human or deciding what happens next.",
+              "human_response": {
+                "ask": "which mark does each player want? Ask each human FIRST, then give each AI seat one of the remaining options. Choose from: X (X (moves first)), O. Each must be distinct.",
+                "example": "I'll take X (moves first)",
+                "records_as": "assign_setup_choices with selections: a map of every player_id to their chosen mark (by name or id)"
+              }
+            },
+            "instructions": "You have joined as seat p2. Pass claim_token as auth_token on EVERY call for this seat (get_legal_moves, get_state, apply_move). It is yours alone — keep it private; the host cannot see your hidden information or act for you. Watch next_step: when it is your turn, play your move; otherwise the host is running the game (AI turns and their own moves) and you simply wait until next_step says it is your turn again. YOU ARE NOT THE ONLY DEVICE TALKING TO THIS SESSION: the host's device applies AI turns and its own moves directly to the shared session on its own schedule, without you doing anything and without you seeing it happen live. Do not assume the state or next_step you last saw still holds — every time your human comes back to you, call get_state first and read its next_step fresh rather than reusing what you last remember, since several turns may have already happened on the host's side."
+          }
+        }
+      },
+      {
+        "call": "get_state",
+        "response": {
+          "isError": false,
+          "body": {
+            "phase": "choose_marks",
+            "marks": {},
+            "board": {
+              "A1": null,
+              "B1": null,
+              "C1": null,
+              "A2": null,
+              "B2": null,
+              "C2": null,
+              "A3": null,
+              "B3": null,
+              "C3": null
+            },
+            "picture": [
+              ". . .",
+              ". . .",
+              ". . ."
+            ],
+            "lucky_squares": {},
+            "winner": null,
+            "your_lucky_square": null,
+            "log": [],
+            "scoreboard": {
+              "p1": {
+                "marks_placed": 0
+              },
+              "p2": {
+                "marks_placed": 0
+              }
+            },
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "SETUP — assign each player a mark before play begins. FIRST ASK each human (p1, p2) which mark they want. Each must be distinct. Choose from: X (X (moves first)), O. Send assign_setup_choices{selections:{<player_id>:<mark>, ...}} covering EVERY player. Humans choose first — do NOT pick their marks for them, and never give an AI an option before a human has chosen. (get_legal_moves offers the default map to confirm or edit.) NOTE: this session is shared with a REMOTE player on a separate device (seatClaims present) — if you are not that seat and this is not naming an action for you to take, do not act; the other device applies its own moves directly to the shared session, invisibly to you, whenever it wants. Never assume the state you last saw is still current — call get_state to refresh it before reporting anything to your human or deciding what happens next.",
+              "human_response": {
+                "ask": "which mark does each player want? Ask each human FIRST, then give each AI seat one of the remaining options. Choose from: X (X (moves first)), O. Each must be distinct.",
+                "example": "I'll take X (moves first)",
+                "records_as": "assign_setup_choices with selections: a map of every player_id to their chosen mark (by name or id)"
+              }
+            },
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Assign marks: Zeke X, Ada O",
+                  "move_id": "marks-default"
+                }
+              ],
+              "total_moves": 1,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            }
+          }
+        }
+      },
+      {
+        "call": "apply_move",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:1>",
+            "applied": true,
+            "state_summary": "Zeke plays X; Ada plays O.",
+            "log_entries": [
+              {
+                "seq": 1,
+                "turn": 1,
+                "actor": "p1",
+                "category": "setup",
+                "summary": "Zeke plays X; Ada plays O."
+              }
+            ],
+            "report_to_human": "Confirm the human's move briefly — one line restating what they declared and what state_summary says changed. Do NOT recite their hand, the board, the supply, or scores; they can see those.",
+            "next_active_player_id": "p1",
+            "next_step": {
+              "status": "awaiting_private_input",
+              "active_player_id": "p1",
+              "instruction": "ASK Zeke which lucky-square card they drew (A1 to C3) and record it with report_lucky_card. Do NOT invent it. NOTE: this session is shared with a REMOTE player on a separate device (seatClaims present) — if you are not that seat and this is not naming an action for you to take, do not act; the other device applies its own moves directly to the shared session, invisibly to you, whenever it wants. Never assume the state you last saw is still current — call get_state to refresh it before reporting anything to your human or deciding what happens next.",
+              "human_response": {
+                "ask": "Which lucky-square card did you draw?",
+                "example": "B2",
+                "records_as": "report_lucky_card with square: the card drawn (A1 to C3)"
+              }
+            },
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "I drew the A1 card",
+                  "move_id": "lucky-A1"
+                },
+                {
+                  "key": "2",
+                  "label": "I drew the B1 card",
+                  "move_id": "lucky-B1"
+                },
+                {
+                  "key": "3",
+                  "label": "I drew the C1 card",
+                  "move_id": "lucky-C1"
+                },
+                {
+                  "key": "4",
+                  "label": "I drew the A2 card",
+                  "move_id": "lucky-A2"
+                },
+                {
+                  "key": "5",
+                  "label": "I drew the B2 card",
+                  "move_id": "lucky-B2"
+                },
+                {
+                  "key": "6",
+                  "label": "I drew the C2 card",
+                  "move_id": "lucky-C2"
+                },
+                {
+                  "key": "7",
+                  "label": "I drew the A3 card",
+                  "move_id": "lucky-A3"
+                },
+                {
+                  "key": "8",
+                  "label": "I drew the B3 card",
+                  "move_id": "lucky-B3"
+                },
+                {
+                  "key": "9",
+                  "label": "I drew the C3 card",
+                  "move_id": "lucky-C3"
+                }
+              ],
+              "total_moves": 9,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            },
+            "game_over": false
+          }
+        }
+      },
+      {
+        "call": "apply_move",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:1>",
+            "applied": true,
+            "state_summary": "Zeke took a lucky-square card (kept secret).",
+            "log_entries": [
+              {
+                "seq": 2,
+                "turn": 1,
+                "actor": "p1",
+                "category": "setup",
+                "summary": "Zeke took a lucky-square card (kept secret)."
+              }
+            ],
+            "rules_briefing": {
+              "for_player": "p2",
+              "sections": [
+                {
+                  "id": "setup",
+                  "title": "Setup",
+                  "text": "Each player chooses a mark, X or O; X moves first. Shuffle the nine lucky-square cards (A1 to C3). Each player draws one in secret."
+                }
+              ],
+              "teach_note": "FIRST TIME these rules are relevant this session. Briefly teach them to Ada now (a sentence or two each, plain words) before play continues — this lesson will NOT repeat. If they say they know the game or want no teaching, turn it off with set_session_preferences."
+            },
+            "report_to_human": "Confirm the human's move briefly — one line restating what they declared and what state_summary says changed. Do NOT recite their hand, the board, the supply, or scores; they can see those.",
+            "next_active_player_id": "p2",
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p2",
+              "instruction": "It is Ada's turn — a REMOTE player on their own device (seat p2). IF YOU ARE THE HOST: you cannot act for this seat (it is locked to them with their claim_token), so do NOT call get_legal_moves, apply_move, get_ai_move or run_ai_turn for it. WAIT until Ada tells you they have finished, then say \"next\" — re-call get_state to see whose turn it is and continue. IF YOU ARE Ada (the remote player): act on your seat using your auth_token (your claim_token). ASK Ada which lucky-square card they drew (A1 to C3) and record it with report_lucky_card. Do NOT invent it.",
+              "human_response": {
+                "ask": "Which lucky-square card did you draw?",
+                "example": "B2",
+                "records_as": "report_lucky_card with square: the card drawn (A1 to C3)"
+              }
+            },
+            "game_over": false
+          }
+        }
+      },
+      {
+        "call": "get_state",
+        "response": {
+          "isError": false,
+          "body": {
+            "phase": "lucky_cards",
+            "marks": {
+              "p1": "X",
+              "p2": "O"
+            },
+            "board": {
+              "A1": null,
+              "B1": null,
+              "C1": null,
+              "A2": null,
+              "B2": null,
+              "C2": null,
+              "A3": null,
+              "B3": null,
+              "C3": null
+            },
+            "picture": [
+              ". . .",
+              ". . .",
+              ". . ."
+            ],
+            "lucky_squares": {
+              "p1": "hidden"
+            },
+            "winner": null,
+            "your_lucky_square": null,
+            "log": [
+              {
+                "seq": 1,
+                "turn": 1,
+                "actor": "p1",
+                "category": "setup",
+                "summary": "Zeke plays X; Ada plays O."
+              },
+              {
+                "seq": 2,
+                "turn": 1,
+                "actor": "p1",
+                "category": "setup",
+                "summary": "Zeke took a lucky-square card (kept secret)."
+              }
+            ],
+            "scoreboard": {
+              "p1": {
+                "marks_placed": 0
+              },
+              "p2": {
+                "marks_placed": 0
+              }
+            },
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p2",
+              "instruction": "It is Ada's turn — a REMOTE player on their own device (seat p2). IF YOU ARE THE HOST: you cannot act for this seat (it is locked to them with their claim_token), so do NOT call get_legal_moves, apply_move, get_ai_move or run_ai_turn for it. WAIT until Ada tells you they have finished, then say \"next\" — re-call get_state to see whose turn it is and continue. IF YOU ARE Ada (the remote player): act on your seat using your auth_token (your claim_token). ASK Ada which lucky-square card they drew (A1 to C3) and record it with report_lucky_card. Do NOT invent it.",
+              "human_response": {
+                "ask": "Which lucky-square card did you draw?",
+                "example": "B2",
+                "records_as": "report_lucky_card with square: the card drawn (A1 to C3)"
+              }
+            },
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "I drew the A1 card",
+                  "move_id": "lucky-A1"
+                },
+                {
+                  "key": "2",
+                  "label": "I drew the B1 card",
+                  "move_id": "lucky-B1"
+                },
+                {
+                  "key": "3",
+                  "label": "I drew the C1 card",
+                  "move_id": "lucky-C1"
+                },
+                {
+                  "key": "4",
+                  "label": "I drew the A2 card",
+                  "move_id": "lucky-A2"
+                },
+                {
+                  "key": "5",
+                  "label": "I drew the B2 card",
+                  "move_id": "lucky-B2"
+                },
+                {
+                  "key": "6",
+                  "label": "I drew the C2 card",
+                  "move_id": "lucky-C2"
+                },
+                {
+                  "key": "7",
+                  "label": "I drew the A3 card",
+                  "move_id": "lucky-A3"
+                },
+                {
+                  "key": "8",
+                  "label": "I drew the B3 card",
+                  "move_id": "lucky-B3"
+                },
+                {
+                  "key": "9",
+                  "label": "I drew the C3 card",
+                  "move_id": "lucky-C3"
+                }
+              ],
+              "total_moves": 9,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "calls": [
+      {
+        "call": "create_session table human vs AI",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:5>",
+            "game_id": "lucky-tic-tac-toe",
+            "active_player_id": "p1",
+            "players_recorded": [
+              {
+                "player_id": "p1",
+                "kind": "human"
+              },
+              {
+                "player_id": "p2",
+                "kind": "ai",
+                "difficulty": "mcts"
+              }
+            ],
+            "initial_state_uri": "game://lucky-tic-tac-toe/sessions/<session_id:5>/player/p1",
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "SETUP — assign each player a mark before play begins. FIRST ASK each human (p1) which mark they want; THEN assign each AI seat (p2) one of the marks the humans did NOT take. Each must be distinct. Choose from: X (X (moves first)), O. Send assign_setup_choices{selections:{<player_id>:<mark>, ...}} covering EVERY player. Humans choose first — do NOT pick their marks for them, and never give an AI an option before a human has chosen. (get_legal_moves offers the default map to confirm or edit.)",
+              "human_response": {
+                "ask": "which mark does each player want? Ask each human FIRST, then give each AI seat one of the remaining options. Choose from: X (X (moves first)), O. Each must be distinct.",
+                "example": "I'll take X (moves first) and give the AI O",
+                "records_as": "assign_setup_choices with selections: a map of every player_id to their chosen mark (by name or id)"
+              }
+            },
+            "setup_checklist": [
+              {
+                "move_type": "assign_setup_choices",
+                "count": 1,
+                "description": "Assign each player a mark before the first turn (each distinct, from X/O). Humans choose FIRST — ask each their own; then assign each AI seat one of the REMAINING marks.",
+                "ask_human_for": "each human's chosen mark FIRST (then pick a mark for any AI seat from what's left)"
+              },
+              {
+                "move_type": "report_lucky_card",
+                "count": 1,
+                "description": "Each human at the table draws one lucky-square card in secret and reports it privately.",
+                "ask_human_for": "which lucky-square card they drew (A1 to C3)"
+              }
+            ],
+            "physical_setup": [
+              {
+                "kind": "action",
+                "text": "Shuffle the nine lucky-square cards (A1 to C3) and put them face down."
+              },
+              {
+                "kind": "report",
+                "text": "Draw one lucky-square card and keep it secret.",
+                "move_type": "report_lucky_card",
+                "for_player_id": "p1"
+              }
+            ],
+            "naming_reminder": "Human seat(s) p1 have no name. Ask each human their name and address them by it from now on. No moves have been made yet, so prefer re-creating the session with each human's `name` set (so the server also refers to them by name). Do NOT invent names — for humans ask, and leave AI seats unnamed (their game identity is their name).",
+            "difficulty_reminder": "AI seat(s) p2 were created with no chosen difficulty, so the server applied a default (see players_recorded for the resolved level). Ask the human how challenging they want each AI opponent — easy, medium, hard, or mcts (strongest) — and if they want anything other than the default, re-create the session with each AI's `difficulty` set (no moves have been made yet).",
+            "rules_briefing": {
+              "for_player": "p1",
+              "sections": [
+                {
+                  "id": "setup",
+                  "title": "Setup",
+                  "text": "Each player chooses a mark, X or O; X moves first. Shuffle the nine lucky-square cards (A1 to C3). Each player draws one in secret."
+                }
+              ],
+              "teach_note": "FIRST TIME these rules are relevant this session. Briefly teach them to p1 now (a sentence or two each, plain words) before play continues — this lesson will NOT repeat. If they say they know the game or want no teaching, turn it off with set_session_preferences."
+            },
+            "agent_guidance": "Lucky Tic-Tac-Toe. Setup: players choose X or O (humans first), then each takes a secret lucky-square card. Each turn is exactly one move: put your mark on one empty square. Follow next_step."
+          }
+        }
+      },
+      {
+        "call": "get_state table human vs AI",
+        "response": {
+          "isError": false,
+          "body": {
+            "phase": "choose_marks",
+            "marks": {},
+            "board": {
+              "A1": null,
+              "B1": null,
+              "C1": null,
+              "A2": null,
+              "B2": null,
+              "C2": null,
+              "A3": null,
+              "B3": null,
+              "C3": null
+            },
+            "picture": [
+              ". . .",
+              ". . .",
+              ". . ."
+            ],
+            "lucky_squares": {},
+            "winner": null,
+            "your_lucky_square": null,
+            "log": [],
+            "scoreboard": {
+              "p1": {
+                "marks_placed": 0
+              },
+              "p2": {
+                "marks_placed": 0
+              }
+            },
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "SETUP — assign each player a mark before play begins. FIRST ASK each human (p1) which mark they want; THEN assign each AI seat (p2) one of the marks the humans did NOT take. Each must be distinct. Choose from: X (X (moves first)), O. Send assign_setup_choices{selections:{<player_id>:<mark>, ...}} covering EVERY player. Humans choose first — do NOT pick their marks for them, and never give an AI an option before a human has chosen. (get_legal_moves offers the default map to confirm or edit.)",
+              "human_response": {
+                "ask": "which mark does each player want? Ask each human FIRST, then give each AI seat one of the remaining options. Choose from: X (X (moves first)), O. Each must be distinct.",
+                "example": "I'll take X (moves first) and give the AI O",
+                "records_as": "assign_setup_choices with selections: a map of every player_id to their chosen mark (by name or id)"
+              }
+            },
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Assign marks: Player 1 X, the AI O",
+                  "move_id": "marks-default"
+                }
+              ],
+              "total_moves": 1,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            }
+          }
+        }
+      },
+      {
+        "call": "get_legal_moves table human vs AI",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:5>",
+            "player_id": "p1",
+            "is_their_turn": true,
+            "legal_moves": [
+              {
+                "move_id": "marks-default",
+                "description": "Assign marks: Player 1 X, the AI O",
+                "move": {
+                  "type": "assign_setup_choices",
+                  "selections": {
+                    "p1": "X",
+                    "p2": "O"
+                  }
+                }
+              }
+            ],
+            "must_move": true,
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Assign marks: Player 1 X, the AI O",
+                  "move_id": "marks-default"
+                }
+              ],
+              "total_moves": 1,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            },
+            "how_to_apply": "To make one of these, call apply_move with this player_id and the chosen entry's move_id (the server expands it — you do NOT build a move object). Pick the entry whose description matches the intended action. IMPORTANT: if the chosen move needs a value the human just told you that is NOT already in its `move` (e.g. which hidden cards they drew — the listed entry leaves that field empty), do NOT use move_id; pass the full `move` object with those values filled in instead."
+          }
+        }
+      },
+      {
+        "call": "create_session on-screen human vs AI",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:6>",
+            "game_id": "lucky-tic-tac-toe",
+            "active_player_id": "p1",
+            "players_recorded": [
+              {
+                "player_id": "p1",
+                "kind": "human",
+                "table": "digital"
+              },
+              {
+                "player_id": "p2",
+                "kind": "ai",
+                "difficulty": "mcts"
+              }
+            ],
+            "initial_state_uri": "game://lucky-tic-tac-toe/sessions/<session_id:6>/player/p1",
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "SETUP — assign each player a mark before play begins. FIRST ASK each human (p1) which mark they want; THEN assign each AI seat (p2) one of the marks the humans did NOT take. Each must be distinct. Choose from: X (X (moves first)), O. Send assign_setup_choices{selections:{<player_id>:<mark>, ...}} covering EVERY player. Humans choose first — do NOT pick their marks for them, and never give an AI an option before a human has chosen. (get_legal_moves offers the default map to confirm or edit.)",
+              "human_response": {
+                "ask": "which mark does each player want? Ask each human FIRST, then give each AI seat one of the remaining options. Choose from: X (X (moves first)), O. Each must be distinct.",
+                "example": "I'll take X (moves first) and give the AI O",
+                "records_as": "assign_setup_choices with selections: a map of every player_id to their chosen mark (by name or id)"
+              }
+            },
+            "setup_checklist": [
+              {
+                "move_type": "assign_setup_choices",
+                "count": 1,
+                "description": "Assign each player a mark before the first turn (each distinct, from X/O). Humans choose FIRST — ask each their own; then assign each AI seat one of the REMAINING marks.",
+                "ask_human_for": "each human's chosen mark FIRST (then pick a mark for any AI seat from what's left)"
+              }
+            ],
+            "physical_setup": [
+              {
+                "kind": "action",
+                "text": "Shuffle the nine lucky-square cards (A1 to C3) and put them face down."
+              }
+            ],
+            "naming_reminder": "Human seat(s) p1 have no name. Ask each human their name and address them by it from now on. No moves have been made yet, so prefer re-creating the session with each human's `name` set (so the server also refers to them by name). Do NOT invent names — for humans ask, and leave AI seats unnamed (their game identity is their name).",
+            "difficulty_reminder": "AI seat(s) p2 were created with no chosen difficulty, so the server applied a default (see players_recorded for the resolved level). Ask the human how challenging they want each AI opponent — easy, medium, hard, or mcts (strongest) — and if they want anything other than the default, re-create the session with each AI's `difficulty` set (no moves have been made yet).",
+            "rules_briefing": {
+              "for_player": "p1",
+              "sections": [
+                {
+                  "id": "setup",
+                  "title": "Setup",
+                  "text": "Each player chooses a mark, X or O; X moves first. Shuffle the nine lucky-square cards (A1 to C3). Each player draws one in secret."
+                }
+              ],
+              "teach_note": "FIRST TIME these rules are relevant this session. Briefly teach them to p1 now (a sentence or two each, plain words) before play continues — this lesson will NOT repeat. If they say they know the game or want no teaching, turn it off with set_session_preferences."
+            },
+            "agent_guidance": "Lucky Tic-Tac-Toe. Setup: players choose X or O (humans first), then each takes a secret lucky-square card. Each turn is exactly one move: put your mark on one empty square. Follow next_step."
+          }
+        }
+      },
+      {
+        "call": "get_state on-screen human vs AI",
+        "response": {
+          "isError": false,
+          "body": {
+            "phase": "choose_marks",
+            "marks": {},
+            "board": {
+              "A1": null,
+              "B1": null,
+              "C1": null,
+              "A2": null,
+              "B2": null,
+              "C2": null,
+              "A3": null,
+              "B3": null,
+              "C3": null
+            },
+            "picture": [
+              ". . .",
+              ". . .",
+              ". . ."
+            ],
+            "lucky_squares": {},
+            "winner": null,
+            "your_lucky_square": null,
+            "log": [],
+            "scoreboard": {
+              "p1": {
+                "marks_placed": 0
+              },
+              "p2": {
+                "marks_placed": 0
+              }
+            },
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p1",
+              "instruction": "SETUP — assign each player a mark before play begins. FIRST ASK each human (p1) which mark they want; THEN assign each AI seat (p2) one of the marks the humans did NOT take. Each must be distinct. Choose from: X (X (moves first)), O. Send assign_setup_choices{selections:{<player_id>:<mark>, ...}} covering EVERY player. Humans choose first — do NOT pick their marks for them, and never give an AI an option before a human has chosen. (get_legal_moves offers the default map to confirm or edit.)",
+              "human_response": {
+                "ask": "which mark does each player want? Ask each human FIRST, then give each AI seat one of the remaining options. Choose from: X (X (moves first)), O. Each must be distinct.",
+                "example": "I'll take X (moves first) and give the AI O",
+                "records_as": "assign_setup_choices with selections: a map of every player_id to their chosen mark (by name or id)"
+              }
+            },
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Assign marks: Player 1 X, the AI O",
+                  "move_id": "marks-default"
+                }
+              ],
+              "total_moves": 1,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            }
+          }
+        }
+      },
+      {
+        "call": "get_legal_moves on-screen human vs AI",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:6>",
+            "player_id": "p1",
+            "is_their_turn": true,
+            "legal_moves": [
+              {
+                "move_id": "marks-default",
+                "description": "Assign marks: Player 1 X, the AI O",
+                "move": {
+                  "type": "assign_setup_choices",
+                  "selections": {
+                    "p1": "X",
+                    "p2": "O"
+                  }
+                }
+              }
+            ],
+            "must_move": true,
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Assign marks: Player 1 X, the AI O",
+                  "move_id": "marks-default"
+                }
+              ],
+              "total_moves": 1,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            },
+            "how_to_apply": "To make one of these, call apply_move with this player_id and the chosen entry's move_id (the server expands it — you do NOT build a move object). Pick the entry whose description matches the intended action. IMPORTANT: if the chosen move needs a value the human just told you that is NOT already in its `move` (e.g. which hidden cards they drew — the listed entry leaves that field empty), do NOT use move_id; pass the full `move` object with those values filled in instead."
+          }
+        }
+      },
+      {
+        "call": "create_session AI vs table human",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:7>",
+            "game_id": "lucky-tic-tac-toe",
+            "active_player_id": "p2",
+            "players_recorded": [
+              {
+                "player_id": "p1",
+                "kind": "ai",
+                "difficulty": "mcts"
+              },
+              {
+                "player_id": "p2",
+                "kind": "human"
+              }
+            ],
+            "initial_state_uri": "game://lucky-tic-tac-toe/sessions/<session_id:7>/player/p2",
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p2",
+              "instruction": "SETUP — assign each player a mark before play begins. FIRST ASK each human (p2) which mark they want; THEN assign each AI seat (p1) one of the marks the humans did NOT take. Each must be distinct. Choose from: X (X (moves first)), O. Send assign_setup_choices{selections:{<player_id>:<mark>, ...}} covering EVERY player. Humans choose first — do NOT pick their marks for them, and never give an AI an option before a human has chosen. (get_legal_moves offers the default map to confirm or edit.)",
+              "human_response": {
+                "ask": "which mark does each player want? Ask each human FIRST, then give each AI seat one of the remaining options. Choose from: X (X (moves first)), O. Each must be distinct.",
+                "example": "I'll take X (moves first) and give the AI O",
+                "records_as": "assign_setup_choices with selections: a map of every player_id to their chosen mark (by name or id)"
+              }
+            },
+            "setup_checklist": [
+              {
+                "move_type": "assign_setup_choices",
+                "count": 1,
+                "description": "Assign each player a mark before the first turn (each distinct, from X/O). Humans choose FIRST — ask each their own; then assign each AI seat one of the REMAINING marks.",
+                "ask_human_for": "each human's chosen mark FIRST (then pick a mark for any AI seat from what's left)"
+              },
+              {
+                "move_type": "report_lucky_card",
+                "count": 1,
+                "description": "Each human at the table draws one lucky-square card in secret and reports it privately.",
+                "ask_human_for": "which lucky-square card they drew (A1 to C3)"
+              }
+            ],
+            "physical_setup": [
+              {
+                "kind": "action",
+                "text": "Shuffle the nine lucky-square cards (A1 to C3) and put them face down."
+              },
+              {
+                "kind": "report",
+                "text": "Draw one lucky-square card and keep it secret.",
+                "move_type": "report_lucky_card",
+                "for_player_id": "p2"
+              }
+            ],
+            "naming_reminder": "Human seat(s) p2 have no name. Ask each human their name and address them by it from now on. No moves have been made yet, so prefer re-creating the session with each human's `name` set (so the server also refers to them by name). Do NOT invent names — for humans ask, and leave AI seats unnamed (their game identity is their name).",
+            "difficulty_reminder": "AI seat(s) p1 were created with no chosen difficulty, so the server applied a default (see players_recorded for the resolved level). Ask the human how challenging they want each AI opponent — easy, medium, hard, or mcts (strongest) — and if they want anything other than the default, re-create the session with each AI's `difficulty` set (no moves have been made yet).",
+            "rules_briefing": {
+              "for_player": "p2",
+              "sections": [
+                {
+                  "id": "setup",
+                  "title": "Setup",
+                  "text": "Each player chooses a mark, X or O; X moves first. Shuffle the nine lucky-square cards (A1 to C3). Each player draws one in secret."
+                }
+              ],
+              "teach_note": "FIRST TIME these rules are relevant this session. Briefly teach them to p2 now (a sentence or two each, plain words) before play continues — this lesson will NOT repeat. If they say they know the game or want no teaching, turn it off with set_session_preferences."
+            },
+            "agent_guidance": "Lucky Tic-Tac-Toe. Setup: players choose X or O (humans first), then each takes a secret lucky-square card. Each turn is exactly one move: put your mark on one empty square. Follow next_step."
+          }
+        }
+      },
+      {
+        "call": "get_state AI vs table human",
+        "response": {
+          "isError": false,
+          "body": {
+            "phase": "choose_marks",
+            "marks": {},
+            "board": {
+              "A1": null,
+              "B1": null,
+              "C1": null,
+              "A2": null,
+              "B2": null,
+              "C2": null,
+              "A3": null,
+              "B3": null,
+              "C3": null
+            },
+            "picture": [
+              ". . .",
+              ". . .",
+              ". . ."
+            ],
+            "lucky_squares": {},
+            "winner": null,
+            "your_lucky_square": null,
+            "log": [],
+            "scoreboard": {
+              "p1": {
+                "marks_placed": 0
+              },
+              "p2": {
+                "marks_placed": 0
+              }
+            },
+            "next_step": {
+              "status": "human_to_move",
+              "active_player_id": "p2",
+              "instruction": "SETUP — assign each player a mark before play begins. FIRST ASK each human (p2) which mark they want; THEN assign each AI seat (p1) one of the marks the humans did NOT take. Each must be distinct. Choose from: X (X (moves first)), O. Send assign_setup_choices{selections:{<player_id>:<mark>, ...}} covering EVERY player. Humans choose first — do NOT pick their marks for them, and never give an AI an option before a human has chosen. (get_legal_moves offers the default map to confirm or edit.)",
+              "human_response": {
+                "ask": "which mark does each player want? Ask each human FIRST, then give each AI seat one of the remaining options. Choose from: X (X (moves first)), O. Each must be distinct.",
+                "example": "I'll take X (moves first) and give the AI O",
+                "records_as": "assign_setup_choices with selections: a map of every player_id to their chosen mark (by name or id)"
+              }
+            },
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Assign marks: the AI X, Player 2 O",
+                  "move_id": "marks-default"
+                }
+              ],
+              "total_moves": 1,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            }
+          }
+        }
+      },
+      {
+        "call": "get_legal_moves AI vs table human",
+        "response": {
+          "isError": false,
+          "body": {
+            "session_id": "<session_id:7>",
+            "player_id": "p2",
+            "is_their_turn": true,
+            "legal_moves": [
+              {
+                "move_id": "marks-default",
+                "description": "Assign marks: the AI X, Player 2 O",
+                "move": {
+                  "type": "assign_setup_choices",
+                  "selections": {
+                    "p1": "X",
+                    "p2": "O"
+                  }
+                }
+              }
+            ],
+            "must_move": true,
+            "move_menu": {
+              "prompt": "Your move — pick a number:",
+              "entries": [
+                {
+                  "key": "1",
+                  "label": "Assign marks: the AI X, Player 2 O",
+                  "move_id": "marks-default"
+                }
+              ],
+              "total_moves": 1,
+              "collapsed": false,
+              "free_text_hint": "Type the number of your choice — or just tell me the move in your own words (a card or location name works) and I’ll match it.",
+              "how_to_use": "Render entries to the human as a numbered list of key + label. If an entry has a submenu it is a CATEGORY (count = options inside, grouped by group_by): when the human picks it, show that submenu as the next numbered list — never dump every option at once. When the human picks a leaf (an entry with a move_id), call apply_move with that move_id. The human may instead answer in their own words — match it to an entry label or a printed component name, confirm the resolved move in one line, then apply it. This menu reflects the CURRENT state only; re-fetch it (it rides on each human-to-move response, or call get_legal_moves) before every human decision — keys and move_ids are not stable across moves."
+            },
+            "how_to_apply": "To make one of these, call apply_move with this player_id and the chosen entry's move_id (the server expands it — you do NOT build a move object). Pick the entry whose description matches the intended action. IMPORTANT: if the chosen move needs a value the human just told you that is NOT already in its `move` (e.g. which hidden cards they drew — the listed entry leaves that field empty), do NOT use move_id; pass the full `move` object with those values filled in instead."
+          }
+        }
+      }
+    ]
+  }
+]

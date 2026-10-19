@@ -38,13 +38,18 @@ pnpm smoke      # plays a whole game of the example through the real MCP tools
 
 Settings come from environment variables: `SESSION_STORE` (`mongodb`, the default; `sqlite`; or `memory`), `MONGODB_URI`, `SESSION_DB_PATH`, `MCP_TRANSPORT` (`stdio`, the default, or `http`), `PORT` and `MCP_BEARER_TOKEN`.
 
+## Tests
+
+The server's tests play a made-up game, Lucky Tic-Tac-Toe (`packages/mcp/src/mcp/__tests__/luckyTicTacToe.ts`): tic-tac-toe where players choose X or O at setup and each holds a secret lucky-square card, which is enough to exercise setup choices, secret information, private answers, reports from a physical table and on-screen play. It exists only for tests.
+
+`clientMode.test.ts` replays fixed conversations and compares them with a recording (`__fixtures__/llmDrivenBaseline.json`), so any change to the text a model reads is made on purpose. After such a change, re-record with `UPDATE_BASELINE=1 pnpm test` and review the diff before committing it.
+
 ## What a game can add
 
 Beyond the required methods, a game can add its own MCP tools and resources (`getExtraTools`, `getExtraResources`), a board drawing for the web debug page (`webAssetsDir`), a rules-teaching outline, setup checklists, a move-menu layout and more. These are the optional fields of `Game` in `packages/game-kit/src/game.ts`.
 
 ## Not done yet
 
-- Some of the server's own tests still live in the repo this code came from, because they use real games as test subjects (creating sessions, the output schemas, joining from a second device, the SQLite and MongoDB stores). They need a small made-up game here first.
 - The instructions text was reworded to take its examples from the author's own games (Sweetlands Imperium, Cybernoir 2127, Neither Guts nor Gears). It has not yet been re-checked against weak models, which read it in every game.
 - Saved sessions carry one version number for the whole server. When a game changes the shape of its saved state, that number has to change for everyone. Each game should version its own state.
 - Only one copy of `@zekel/game-kit` may be installed: the server recognises a game's errors by their type. Game packages should list it as a peer dependency.
