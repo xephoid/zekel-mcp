@@ -80,11 +80,11 @@ describe('buildMoveMenu — flat (small move sets, e.g. Fractured Fist)', () => 
   });
 });
 
-describe('buildMoveMenu — grouped drill-down (large move sets, e.g. Brass)', () => {
-  // Synthesize a Brass-like busy turn: many build variants across cities +
-  // industries, plus a handful of other action types.
-  const cities = ['birmingham', 'coventry', 'dudley', 'walsall', 'wolverhampton'];
-  const industries = ['cotton_mill', 'coal_mine', 'iron_works'];
+describe('buildMoveMenu — grouped drill-down (large move sets)', () => {
+  // Synthesize a busy turn: many build variants across places + building
+  // types, plus a handful of other action types.
+  const cities = ['north-gate', 'east-market', 'south-docks', 'west-mill', 'old-town'];
+  const industries = ['bakery', 'forge', 'tannery'];
   const builds: LegalMove<unknown>[] = [];
   for (const location of cities) {
     for (const industry_type of industries) {

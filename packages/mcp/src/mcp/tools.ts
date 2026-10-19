@@ -177,8 +177,8 @@ async function failMove(err: unknown, sessionId: string, playerId: string) {
 //
 // Precedence: an explicit `move` WINS over move_id. This is load-bearing. Some
 // moves carry values the server cannot enumerate — a human reporting which hidden
-// cards they drew (report_refill's drawn_types) — so their get_legal_moves entry
-// is only a SKELETON (e.g. drawn_types: []). A model that correctly built the full
+// cards they drew — so their get_legal_moves entry is only a SKELETON (the list
+// of drawn cards left empty). A model that correctly built the full
 // move AND also passed the skeleton's move_id must get its real values, not the
 // empty skeleton. (The desync harness caught the inverse: move_id winning silently
 // stripped the human's reported draws to [], the refill failed, the model burned
@@ -383,7 +383,7 @@ export function registerTools(rawServer: McpServer, ctx: ConnectionContext = llm
         // A copyable example beats field-by-field construction for weak models
         // (the move_id principle, applied to the one call made before any
         // session exists to enumerate from).
-        'Example — one human vs one AI: {"game_id":"dragonwood","players":' +
+        'Example — one human vs one AI: {"game_id":"fractured-fist","players":' +
         '[{"player_id":"p1","kind":"human","name":"Zeke"},' +
         '{"player_id":"p2","kind":"ai","difficulty":"medium"}]}. ' +
         'The person at the table is kind:"human" (never "ai"); only ' +
@@ -452,7 +452,7 @@ export function registerTools(rawServer: McpServer, ctx: ConnectionContext = llm
         // difficulty always wins. The rung is positional (an overriding player
         // still consumes its slot), so the ladder stays stable. Game-agnostic:
         // games that don't implement a tier fall back to their own default in
-        // getAIMove (e.g. mcts → medium), and agent-hunter ignores difficulty.
+        // getAIMove (e.g. mcts → medium), and a game may ignore difficulty.
         const DIFFICULTY_LADDER = ['mcts', 'hard', 'medium', 'easy'] as const;
         let aiSeatIndex = 0;
         const playersWithDefaults = players.map((p) => {
@@ -903,7 +903,7 @@ export function registerTools(rawServer: McpServer, ctx: ConnectionContext = llm
             : {}),
           ...teach,
           how_to_apply:
-            'To make one of these, call apply_move with this player_id and the chosen entry\'s move_id (the server expands it — you do NOT build a move object). Pick the entry whose description matches the intended action. IMPORTANT: if the chosen move needs a value the human just told you that is NOT already in its `move` (e.g. which hidden cards they drew for a refill — its drawn_types is an empty skeleton), do NOT use move_id; pass the full `move` object with those values filled in instead.',
+            'To make one of these, call apply_move with this player_id and the chosen entry\'s move_id (the server expands it — you do NOT build a move object). Pick the entry whose description matches the intended action. IMPORTANT: if the chosen move needs a value the human just told you that is NOT already in its `move` (e.g. which hidden cards they drew — the listed entry leaves that field empty), do NOT use move_id; pass the full `move` object with those values filled in instead.',
         });
       } catch (e) {
         return fail(e);
@@ -1138,9 +1138,8 @@ export function registerTools(rawServer: McpServer, ctx: ConnectionContext = llm
           throw new GameError('PLAYER_NOT_FOUND', `No player ${args.player_id} in session`);
         }
         // No kind check and no apply: this only COMPUTES a move. Prefer the
-        // game's getSuggestedMove (a directly-APPLYABLE concrete decision — e.g.
-        // SW:R returns report_rebel_base / resolve_choice here instead of the
-        // opaque ai_step getAIMove hands back) so the harness ground truth plays
+        // game's getSuggestedMove (a directly-APPLYABLE concrete decision, where
+        // getAIMove may hand back an opaque ai_step) so the harness ground truth plays
         // a representative game; fall back to getAIMove otherwise.
         const suggested = game.getSuggestedMove?.(session, args.player_id);
         const pick =
@@ -1240,10 +1239,10 @@ export function registerTools(rawServer: McpServer, ctx: ConnectionContext = llm
           throw new GameError('NOT_YOUR_TURN', `It is ${session.activePlayerId}'s turn`);
         }
         // Loop while the server's own directive says an AI is to move. This
-        // naturally spans BOTH the within-turn multi-move sequence (e.g. an
-        // Arcs AI leading a card then spending each pip) AND consecutive AI
-        // turns, and it stops exactly when describeNextStep flags a human-owed
-        // step (e.g. an Arcs Court refill after the AI Secures) or the game
+        // naturally spans BOTH the within-turn multi-move sequence (e.g. an AI
+        // playing a card and then spending each action it gives) AND consecutive
+        // AI turns, and it stops exactly when describeNextStep flags a human-owed
+        // step (e.g. a human Detective deciding whether to block) or the game
         // ends — the same authoritative signal every other tool uses.
         const MAX_AI_MOVES = 2000; // safety net against a stale-pending loop
         const moves: Array<{
@@ -1342,8 +1341,8 @@ export function registerTools(rawServer: McpServer, ctx: ConnectionContext = llm
         'Use this whenever a move was made by mistake — most importantly if YOU ' +
         'applied a move the human did not actually choose, or the human says ' +
         '"undo"/"take that back". Call it again to step further back through recent ' +
-        'history. (Caveat: a human REPORT made mid-AI-turn — e.g. confirming a Feds ' +
-        'catch — is itself a human action, so the sweep stops there; undo again to ' +
+        'history. (Caveat: a human REPORT made mid-AI-turn — e.g. a human Detective ' +
+        'deciding whether to block a play — is itself a human action, so the sweep stops there; undo again to ' +
         'continue past it. An all-AI run_ai_turn reverts as one batch.) Game-agnostic. ' +
         'Returns reverted=N (how many actions were rolled back) and the restored ' +
         'next_step, or undone=false if there is nothing to undo.',

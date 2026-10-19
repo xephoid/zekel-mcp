@@ -1,8 +1,8 @@
 // Shared "setup-choice ownership" plumbing (cross-game).
 //
 // Many games open with a per-seat IDENTITY choice that belongs to the human, not
-// the server: a standee COLOR (Snallygaster, Brass), a FACTION color (Arcs), a GOD
-// (Ankh), a character, a starting leader, etc. Left to a generic turn loop the model
+// the server: a player COLOR, a FACTION (Sweetlands Imperium's leaders), a ROLE
+// (Cybernoir 2127's Hacker or Detective), a character, a starting leader, etc. Left to a generic turn loop the model
 // silently auto-assigns these by seat index — picking for the human, who never gets
 // asked. This module standardizes the FIX so each game wires it in ~10 lines instead
 // of hand-rolling the pending, the validation, and the directive wording:
@@ -21,8 +21,8 @@
 // choice sets are game-specific — the game owns those; this module owns the rails and
 // the wording. The recommended shared move shape is:
 //   { type: 'assign_setup_choices'; selections: Record<playerId, optionId> }
-// (a game may keep a legacy game-specific move name — Snallygaster predates this and
-// uses `assign_kid_colors` — but new games should use the shared shape.)
+// (a game may keep an older game-specific move name of its own, but new games
+// should use the shared shape.)
 
 import type { NextStep, PlayerConfig, SetupStep } from './game.js';
 import { seatDisplayName } from './seatNames.js';
@@ -38,9 +38,8 @@ export interface SetupChoiceSpec {
   choiceLabel: string;
   // The pool every seat picks from.
   options: SetupChoiceOption[];
-  // The seats that must choose (usually every player; e.g. all of Brass, or every
-  // Kid in Snallygaster — exclude seats that don't get this identity, like the
-  // hidden Lost Kid). Order is the seat/turn order, used for the default assignment.
+  // The seats that must choose (usually every player — exclude seats that don't
+  // get this identity, such as a seat whose role is hidden or dealt). Order is the seat/turn order, used for the default assignment.
   seats: PlayerConfig[];
   // Must each seat pick a DIFFERENT option (colors, factions, gods → true)? When
   // false, seats may share (rare). Defaults to true at the call sites that omit it.

@@ -18,8 +18,8 @@ import { isHumanTurnStatus } from '@zekel/game-kit';
 // Move menu — a typing-friendly rendering of the current legal moves.
 //
 // The human plays on a physical table and talks to the model in prose; making
-// them spell out a whole move ("build a Cotton Mill in Birmingham slot 2 paying
-// coal from the market") is a lot of typing AND a desync risk (the model has to
+// them spell out a whole move ("play the double Green card, using its first
+// action and then its second") is a lot of typing AND a desync risk (the model has to
 // reconstruct an exact move shape). A numbered menu collapses that to "type 3".
 //
 // This is purely a PRESENTATION of get_legal_moves — never the source of truth

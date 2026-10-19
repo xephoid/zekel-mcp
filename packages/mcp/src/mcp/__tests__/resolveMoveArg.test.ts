@@ -1,7 +1,7 @@
 // apply_move can take a move_id (an entry from this player's current
 // get_legal_moves) instead of a hand-built move object — so weak models never
 // construct a move shape for an enumerable action. The desync harness caught a
-// model unable to produce the Brass `sell` shape across many guesses; move_id is
+// model unable to produce one game's `sell` move shape across many guesses; move_id is
 // the structural fix. These lock resolveMoveArg's behaviour.
 
 import { describe, expect, it } from 'vitest';
@@ -10,8 +10,8 @@ import { GameError } from '@zekel/game-kit';
 import type { LegalMove, SessionState } from '@zekel/game-kit';
 
 const LEGAL: LegalMove<unknown>[] = [
-  { move_id: '0', description: 'Build Cotton Mill', move: { type: 'build', card_id: 'L1', industry_type: 'cotton_mill' } },
-  { move_id: '1', description: 'Sell Cotton Mill (use merchant beer + bonus)', move: { type: 'sell', card_id: 'L1', sales: [{ location: 'worcester', slot_index: 0, use_merchant_beer: true }] } },
+  { move_id: '0', description: 'Build Bakery', move: { type: 'build', card_id: 'L1', industry_type: 'bakery' } },
+  { move_id: '1', description: 'Sell bread (at the market, with bonus)', move: { type: 'sell', card_id: 'L1', sales: [{ location: 'market', slot_index: 0, use_bonus: true }] } },
 ];
 
 // Minimal stand-in for the Game surface resolveMoveArg touches.
@@ -40,7 +40,7 @@ describe('resolveMoveArg', () => {
 
   it('the full move wins when both are supplied (move_id skeleton may be empty)', () => {
     // Load-bearing: a report move passes move_id (skeleton) + the real values.
-    const realMove = { type: 'report_refill', drawn_types: ['loc:leek', 'ind:brewery'] };
+    const realMove = { type: 'report_draw', drawn_cards: ['bread', 'salt'] };
     expect(resolveMoveArg(game, session, 'p1', '1', realMove)).toBe(realMove);
   });
 

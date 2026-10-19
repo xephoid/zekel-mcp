@@ -1,5 +1,4 @@
-// <zekel-bag> — the push-your-luck chip bag (Wonderland's War's reason this
-// exists): a drawstring-bag figure with a count, optional known composition
+// <zekel-bag> — a push-your-luck chip bag: a drawstring-bag figure with a count, optional known composition
 // as chips, the pulled reveal row, and a status flag (drawing/busted/halted).
 
 import { ZekelElement, esc, themeColor } from './base.js';

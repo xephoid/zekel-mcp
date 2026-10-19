@@ -16,6 +16,6 @@
 // listens on the container, so the glue wires nothing unless a game needs
 // custom detail.
 //
-// Reference implementation: src/games/frogs-with-shotguns/viz/board.ts
+// Example: a game's own viz/board.ts reads its view and creates zekel-* elements.
 
 export type { GameBoardModule } from '@zekel/game-kit';

@@ -1,6 +1,6 @@
 // The shared setup-choice framework (src/core/setupChoices.ts) — used by every game
-// with a per-seat identity pick (Snallygaster colours, Brass colours, Arcs factions,
-// Ankh gods). Locks the validation, the default assignment, and the rail builders.
+// with a per-seat identity pick (player colours, factions, characters, roles).
+// Locks the validation, the default assignment, and the rail builders.
 
 import { describe, it, expect } from 'vitest';
 import {

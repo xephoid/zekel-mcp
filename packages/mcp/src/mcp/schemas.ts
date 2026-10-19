@@ -111,7 +111,7 @@ export const applyMoveInput = {
   //    a move shape. Best for ENUMERABLE actions (build/sell/network/…).
   //  • move — the full structured move object. REQUIRED for moves carrying values
   //    the server can't enumerate (e.g. a human reporting which hidden cards they
-  //    drew — report_refill's drawn_types); the get_legal_moves entry for those is
+  //    drew); the get_legal_moves entry for those is
   //    only a skeleton, so move_id alone would submit empty values.
   // Provide exactly one. If both are given, the full `move` wins (it carries your
   // real values; the move_id skeleton may be empty).

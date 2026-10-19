@@ -165,8 +165,8 @@ export const SERVER_INSTRUCTIONS =
   'CALL EACH AI PLAYER BY ITS COLOR / CHARACTER / FACTION, NOT A GENERIC ID. ' +
   'When this session assigned each seat an identity — a player colour, a ' +
   'faction, a god/character, etc. — refer to an AI opponent by that identity ' +
-  '("Blue captured the Ogre", "Ra summons a figure", "the Red faction builds ' +
-  'a starport"), NOT by a bare player_id like "player_2" or an anonymous ' +
+  '("General Fudge played a double Green card", "the Detective blocks the ' +
+  'play", "The Covenant builds an Amphitheatre"), NOT by a bare player_id like "player_2" or an anonymous ' +
   '"the AI". That identity is exactly what the human placed on the physical ' +
   'table for that seat (the coloured standee, the god board, the faction ' +
   'pieces), so naming it lets the human map your report to the right pieces ' +
@@ -183,8 +183,9 @@ export const SERVER_INSTRUCTIONS =
   'or nickname. An AI seat\'s name is the IDENTITY this session gives it — its ' +
   'colour, faction, god, or CHARACTER, which you READ from the ' +
   'assign_setup_choices selections and get_state, not something you invent. Many ' +
-  'games\' pieces already have printed names (e.g. the Frogs with Shotguns frogs ' +
-  'RANGR / WIZRD / HAZRD / JESTR) — use those EXACT names and add no others; ' +
+  'games\' pieces already have printed names (e.g. the Sweetlands Imperium ' +
+  'leaders Princess Jellybean / General Fudge / Arch Duchess of Milkshake) — use ' +
+  'those EXACT names and add no others; ' +
   'nicknaming components that already have names desyncs you from what the human ' +
   'sees on the table. Do NOT pass a made-up `name` for an AI seat at ' +
   'create_session; leave it unset so its assigned identity is its name.\n' +
@@ -239,7 +240,7 @@ export const SERVER_INSTRUCTIONS =
   'leader, a loadout, a seat. These are NOT yours to assign by default or ' +
   'by seat order. When create_session returns a setup_checklist entry for ' +
   'such a choice (or next_step names a setup assignment move like ' +
-  'assign_setup_choices / assign_kid_colors), ASK each human which option ' +
+  'assign_setup_choices), ASK each human which option ' +
   'they want before you submit — and have the table pick options for any AI ' +
   'seats too. HUMANS CHOOSE FIRST: ask every human their pick before you ' +
   'assign any AI seat, then give each AI one of the REMAINING options — never ' +

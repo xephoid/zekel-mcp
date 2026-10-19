@@ -323,7 +323,7 @@ export interface NextStepFacts {
   // Whose turn it is, when a DIFFERENT seat is making this choice (e.g. a
   // defender choosing during the attacker's turn). A seat id.
   turn_owner_id?: string;
-  // Why this step is owed now: "the AI secured a Court card".
+  // Why this step is owed now: "the Hacker is playing Eddie the Doorman".
   reason?: string;
   // Where the step sits in a sequence: "card 2 of 5", "step 1 of 2".
   progress?: { current: number; total: number; of?: string };
@@ -411,7 +411,7 @@ export interface MoveMenuEntry {
   // Short selection token the human types (e.g. "1"), unique within this level.
   key: string;
   // Human-facing one-liner. For leaves this is the legal move's description; for
-  // nodes it names the category (e.g. "Build", "Birmingham").
+  // nodes it names the category (e.g. "Build", "Recruit").
   label: string;
   // LEAF only: the move_id from get_legal_moves to pass to apply_move.
   move_id?: string;
@@ -748,8 +748,8 @@ export interface Game<State, Move, Options = Record<string, unknown>> {
   // Optional: a game's rich, replayable event log (GameLogEntry[]). Implement
   // this when the engine authors per-event entries (resource deltas, phase
   // transitions, names/locations) — the MCP layer surfaces it in get_state and
-  // the session log resource. Age of Galaxy is the reference implementation
-  // (it stores the log in its own gameState and returns it here). Games that do
+  // the session log resource. A game typically stores the log in its own
+  // gameState and returns it here. Games that do
   // not self-log omit this and instead implement getScoreboard for the lighter
   // auto-delta path on the generic moveLog.
   getLog?(state: SessionState<State>): GameLogEntry[];
@@ -779,8 +779,8 @@ export interface Game<State, Move, Options = Record<string, unknown>> {
   // by the move's discriminant (`type`/`action`) and recursively by the field
   // that best splits each oversized group, which is a reasonable default for
   // every game. Implement this only when a game's move space wants smarter
-  // grouping or labels than the generic heuristic infers (e.g. Brass collapsing
-  // its hundreds of build/sell variants by city, then by resource source).
+  // grouping or labels than the generic heuristic infers (e.g. a game with
+  // hundreds of build variants grouping them by place, then by what is built).
   // Receives the already-computed legal moves; return null to fall back to the
   // generic builder. Purely presentational — must reference only move_ids that
   // appear in `legalMoves`, never invent moves or alter legality.
@@ -801,24 +801,21 @@ export interface Game<State, Move, Options = Record<string, unknown>> {
   // must vary (factions, loadouts, scenarios, cosmetic picks to confirm flat).
   // Surfaced via get_rules so the harness can report which axes a run exercised
   // vs left at default. Implement it for any game with a non-trivial setup choice;
-  // the harness adds a generic player-count axis on top. See getBalanceAxes refs
-  // in fractured-fist / frogs-with-shotguns / arcs.
+  // the harness adds a generic player-count axis on top.
   getBalanceAxes?(): BalanceAxis[];
 
   // Optional: the CHOICE CATALOG — every decision the printed rules give a
-  // player, as data (src/core/choiceCatalog.ts). The post-port gate's §6 table
-  // in prose form, made checkable: src/harness/choiceCoverage.ts plays the game
-  // with a human seat and fails if a decision marked `player` is never actually
-  // put to that seat. That is the one bug class the all-AI harness cannot see —
-  // it is why Wonderland's War shipped with 8 decisions taken out of the
-  // player's hands and a green harness. Reference: wonderlands-war/choices.ts.
+  // player, as data. A coverage checker can then play the game with a human
+  // seat and fail if a decision marked `player` is never actually put to that
+  // seat — the one kind of bug an all-AI test run cannot see: a game that makes
+  // decisions for the player instead of asking.
   getChoiceCatalog?(): PlayerChoice[];
 
   // Optional companion to getChoiceCatalog: which catalog choice is this seat
   // being asked to make right now, by id — or null if it is not being asked
   // anything. Only needed when several different decisions are settled by the
-  // SAME move type, so the move type alone can't tell them apart (Wonderland's
-  // War routes seven different decisions through `resolve_choice`). Without it
+  // SAME move type, so the move type alone can't tell them apart (e.g. a game
+  // that routes several different decisions through one `resolve_choice` move). Without it
   // the coverage check falls back to matching on the move types in `resolvedBy`,
   // which is enough for most games.
   getChoiceOwed?(state: SessionState<State>, playerId: string): string | null;
@@ -847,14 +844,13 @@ export interface Game<State, Move, Options = Record<string, unknown>> {
   // Optional: a directly-APPLYABLE concrete move reflecting the AI's actual
   // decision for `playerId` in the current state — used by the suggest_move tool
   // (the integration harness's ground truth). It exists because getAIMove may
-  // return an opaque DRIVER move that carries no decision data: SW:R's getAIMove
-  // returns { type: 'ai_step' } (the engine resolves the AI's secret base pick,
-  // tactic plays, etc. internally), so a harness driving a HUMAN seat off
-  // suggest_move would fall back to get_legal_moves[0] — the first-enumerated
-  // option (e.g. the Rebel base at the alphabetically-first system), producing a
-  // degenerate game. getSuggestedMove exposes the AI's real choice (the hidden
-  // base via its setup heuristic, a smart resolve_choice payload) so the human
-  // seat plays representatively. Return null to defer to getAIMove. Harness-only —
+  // return an opaque DRIVER move that carries no decision data (e.g.
+  // { type: 'ai_step' }, with the engine resolving the AI's secret picks
+  // internally), so a harness driving a HUMAN seat off suggest_move would fall
+  // back to get_legal_moves[0] — the first-enumerated option — producing a
+  // degenerate game. getSuggestedMove exposes the AI's real choice (a hidden pick
+  // via its setup heuristic, a smart resolve_choice payload) so the human seat
+  // plays representatively. Return null to defer to getAIMove. Harness-only —
   // NEVER called on a real session; a human-owned decision is the human's to make
   // (docs/digital-mode.md, "Choices always stay with the person").
   getSuggestedMove?(state: SessionState<State>, playerId: string): { move: Move } | null;

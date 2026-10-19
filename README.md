@@ -45,6 +45,6 @@ Beyond the required methods, a game can add its own MCP tools and resources (`ge
 ## Not done yet
 
 - Some of the server's own tests still live in the repo this code came from, because they use real games as test subjects (creating sessions, the output schemas, joining from a second device, the SQLite and MongoDB stores). They need a small made-up game here first.
-- The server's instructions text and some code comments still use real games as examples.
+- The instructions text was reworded to take its examples from the author's own games (Sweetlands Imperium, Cybernoir 2127, Neither Guts nor Gears). It has not yet been re-checked against weak models, which read it in every game.
 - Saved sessions carry one version number for the whole server. When a game changes the shape of its saved state, that number has to change for everyone. Each game should version its own state.
 - Only one copy of `@zekel/game-kit` may be installed: the server recognises a game's errors by their type. Game packages should list it as a peer dependency.

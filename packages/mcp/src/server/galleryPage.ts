@@ -23,7 +23,7 @@ export const GALLERY_PAGE_HTML = `<!doctype html>
     overflow-y: auto; background: #000c; color: #9f9; font: 11px ui-monospace, monospace;
     border-radius: 8px; padding: 8px; }
   #eventlog div { border-bottom: 1px solid #fff2; padding: 2px 0; }
-  .theme-demo { --zekel-c-pool-of-tears: #3fa7d6; --zekel-c-witzend: #9b59b6;
+  .theme-demo { --zekel-c-lakeshore: #3fa7d6; --zekel-c-hilltop: #9b59b6;
     --zekel-c-red-keep: #c0392b; --zekel-c-forest: #2e7d32; --zekel-c-meadow: #f4a940;
     --zekel-c-hero: #1a5276; --zekel-c-villain: #922b21; }
 </style>
@@ -117,7 +117,7 @@ function make(tag, data) {
 }
 
 // --- zekel-card
-put('s-card', 'zekel-card', { label: 'Ogre', colorKey: 'forest', badges: ['STR 7', '2 pts'] }, 'face up + badges');
+put('s-card', 'zekel-card', { label: 'Troll', colorKey: 'forest', badges: ['STR 7', '2 pts'] }, 'face up + badges');
 put('s-card', 'zekel-card', { label: 'Face down', face: 'down' }, 'face down');
 put('s-card', 'zekel-card', { label: 'Warrior', colorKey: 'villain', count: 4 }, 'count collapse');
 put('s-card', 'zekel-card', { label: 'Exhausted', colorKey: 'hero', rotation: 90 }, 'tapped (rotation 90)');
@@ -145,8 +145,8 @@ put('s-tableau', 'zekel-tableau', { label: 'Villain Player', owner: 'villain', s
 put('s-bag', 'zekel-bag', { label: 'Opponent bag (count only)', count: 12 }, 'hidden composition');
 put('s-bag', 'zekel-bag', { label: 'Your bag', contents: [
   { label: 'Soldier', count: 5, colorKey: 'villain' }, { label: 'Scout', count: 2, colorKey: 'hero' },
-  { label: 'Madness', count: 3 } ],
-  revealRow: [ { label: 'Soldier', colorKey: 'villain' }, { label: 'Madness' } ],
+  { label: 'Trouble', count: 3 } ],
+  revealRow: [ { label: 'Soldier', colorKey: 'villain' }, { label: 'Trouble' } ],
   status: 'busted' }, 'composition + pulls + busted');
 
 // --- zekel-track
@@ -164,17 +164,17 @@ put('s-pool', 'zekel-pool', { label: 'Supply', items: [
   { label: 'Coal', count: 8 }, { label: 'Iron', count: 5 }, { label: 'Gold', count: 2, colorKey: 'meadow' } ] }, '');
 
 // --- zekel-grid
-put('s-grid', 'zekel-grid', { label: 'The Swamp (corner)', coordinates: true,
+put('s-grid', 'zekel-grid', { label: 'Sample grid (corner)', coordinates: true,
   extent: { minX: 1, minY: 1, maxX: 8, maxY: 6 }, cells: [
-  { x: 3, y: 2, pieces: [ { label: 'RANGR', colorKey: 'hero', badges: ['HP 3'] } ] },
+  { x: 3, y: 2, pieces: [ { label: 'Ranger', colorKey: 'hero', badges: ['HP 3'] } ] },
   { x: 5, y: 4, terrain: 'forest' }, { x: 6, y: 4, terrain: 'forest' },
-  { x: 4, y: 3, pieces: [ { label: 'Bullet' } ] },
-  { x: 7, y: 2, pieces: [ { label: 'HAZRD', colorKey: 'villain' }, { label: 'Fly', colorKey: 'meadow' } ] } ] }, '');
+  { x: 4, y: 3, pieces: [ { label: 'Token' } ] },
+  { x: 7, y: 2, pieces: [ { label: 'Rival', colorKey: 'villain' }, { label: 'Marker', colorKey: 'meadow' } ] } ] }, '');
 
 // --- zekel-map
 put('s-map', 'zekel-map', { label: 'Five regions', nodes: [
-  { id: 'pool-of-tears', label: 'Pool of Tears', x: 22, y: 26, pieces: [ { label: 'Hero', colorKey: 'hero', count: 3 } ] },
-  { id: 'witzend', label: 'Witzend', x: 76, y: 24, badges: ['scoring x2'] },
+  { id: 'lakeshore', label: 'Lakeshore', x: 22, y: 26, pieces: [ { label: 'Hero', colorKey: 'hero', count: 3 } ] },
+  { id: 'hilltop', label: 'Hilltop', x: 76, y: 24, badges: ['scoring x2'] },
   { id: 'meadow', label: 'Meadow', x: 20, y: 72, colorKey: 'meadow' },
   { id: 'forest', label: 'Deep Forest', x: 50, y: 66, colorKey: 'forest', size: 1.2,
     pieces: [ { label: 'Villain', colorKey: 'villain', count: 2 }, { label: 'Hero', colorKey: 'hero' } ] },
@@ -182,11 +182,11 @@ put('s-map', 'zekel-map', { label: 'Five regions', nodes: [
 
 // --- theming demo: same components, recolored by the wrapper's CSS vars
 put('s-theme', 'zekel-map', { nodes: [
-  { id: 'pool-of-tears', label: 'Pool of Tears', x: 25, y: 30 },
-  { id: 'witzend', label: 'Witzend', x: 72, y: 28 },
+  { id: 'lakeshore', label: 'Lakeshore', x: 25, y: 30 },
+  { id: 'hilltop', label: 'Hilltop', x: 72, y: 28 },
   { id: 'red-keep', label: 'Red Keep', x: 75, y: 72 } ] }, 'themed map');
 put('s-theme', 'zekel-pool', { items: [
-  { label: 'Pool of Tears', count: 1 }, { label: 'Witzend', count: 1 },
+  { label: 'Lakeshore', count: 1 }, { label: 'Hilltop', count: 1 },
   { label: 'Red Keep', count: 1 }, { label: 'Unthemed Thing', count: 1 } ] }, 'themed vs hashed fallback');
 
 // --- interaction log

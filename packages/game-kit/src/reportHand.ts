@@ -3,16 +3,15 @@
 // A game with a single SHARED hidden draw deck cannot let the server own the deck
 // order without contradicting the physical-first design: the human shuffles their
 // OWN physical deck and draws random cards, which never match cards the server
-// invented for them. The fix (pioneered in Age of Galaxy's report_faction_hand)
-// inverts ownership: the human physically shuffles and draws, REPORTS what they
+// invented for them. The fix inverts ownership: the human physically shuffles and draws, REPORTS what they
 // drew, and the server removes those from a tracked remainder and deals the AI's
 // hand(s) from what's left — guaranteeing disjoint hands. The AI's hand stays
 // hidden; only its board actions are narrated.
 //
 // This module owns only the cross-cutting WORDING (the next_step directive + the
 // setup-checklist entry) so each game wires a report move in a few lines. The deck
-// math (multiset+mint+reconcile for duplicate cards like Brass, unique-id slice for
-// Arcs) is game-specific and lives in each engine — a single "deal remainder to AI"
+// math (multiset+mint+reconcile for decks with duplicate cards, a unique-id slice
+// for decks where every card is different) is game-specific and lives in each engine — a single "deal remainder to AI"
 // util would straddle both shapes and become a leaky abstraction.
 
 import type { NextStep, NextStepFacts, SetupStep } from './game.js';

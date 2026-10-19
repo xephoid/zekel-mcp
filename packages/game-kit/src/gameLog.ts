@@ -9,7 +9,7 @@
 //
 // Resource names are free strings, so each game keeps its own vocabulary. The
 // render helpers use the raw names; a game wanting prettier labels (e.g. "Credits"
-// instead of "credits") can supply its own renderer — see Age of Galaxy.
+// instead of "credits") can supply its own renderer.
 
 import type { GameLogEntry, LogResourceDelta } from './game.js';
 

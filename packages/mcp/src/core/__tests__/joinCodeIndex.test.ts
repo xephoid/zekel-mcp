@@ -36,7 +36,7 @@ describe('join-code index survives restart', () => {
     // --- "before restart": a session with a join code is persisted. ---
     const store1 = new SqliteSessionStore(dbPath);
     setSessionStore(store1);
-    const s = makeContractSession('dragonwood');
+    const s = makeContractSession('example-game');
     s.sessionId = 'sess-restart';
     s.joinCode = 'ABCD';
     await store1.saveSession(s);
@@ -49,7 +49,7 @@ describe('join-code index survives restart', () => {
     expect(resolveJoinCode('ABCD')).toBeUndefined();
 
     // ...until the startup rebuild scans persisted sessions.
-    const restored = await rebuildJoinCodeIndex(['dragonwood']);
+    const restored = await rebuildJoinCodeIndex(['example-game']);
     expect(restored).toBeGreaterThanOrEqual(1);
     expect(resolveJoinCode('ABCD')).toBe('sess-restart');
     await store2.close();
@@ -58,7 +58,7 @@ describe('join-code index survives restart', () => {
   it('lazily backfills the index when a coded session is loaded by id', async () => {
     const store = new SqliteSessionStore(tempDbPath());
     setSessionStore(store);
-    const s = makeContractSession('dragonwood');
+    const s = makeContractSession('example-game');
     s.sessionId = 'sess-lazy';
     s.joinCode = 'EFGH';
     await store.saveSession(s);
@@ -72,7 +72,7 @@ describe('join-code index survives restart', () => {
   it('releases the code when its session is deleted', async () => {
     const store = new SqliteSessionStore(tempDbPath());
     setSessionStore(store);
-    const s = makeContractSession('dragonwood');
+    const s = makeContractSession('example-game');
     s.sessionId = 'sess-del';
     s.joinCode = 'JKMN';
     await store.saveSession(s);

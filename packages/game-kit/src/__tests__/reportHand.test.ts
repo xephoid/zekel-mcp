@@ -1,5 +1,5 @@
 // The shared "human reports the cards they drew" directive (src/core/reportHand.ts),
-// used by Arcs / Brass / SW:R for their shared-deck draws.
+// used by games whose players draw from a shared deck.
 
 import { describe, it, expect } from 'vitest';
 import { reportHandNextStep } from '../reportHand.js';
@@ -17,9 +17,9 @@ describe('reportHandNextStep', () => {
   });
 
   it('carries a human_response that records by printed NAME, not an internal id', () => {
-    const hr = reportHandNextStep({ moveType: 'report_refill', playerId: 'h1', ask: 'the cards drawn' }).human_response;
+    const hr = reportHandNextStep({ moveType: 'report_draw', playerId: 'h1', ask: 'the cards drawn' }).human_response;
     expect(hr).toBeDefined();
-    expect(hr!.records_as).toContain('report_refill');
+    expect(hr!.records_as).toContain('report_draw');
     expect(hr!.records_as.toLowerCase()).toContain('name');
     expect(hr!.ask).toContain('h1');
     // The example demonstrates printed names and warns off internal ids.

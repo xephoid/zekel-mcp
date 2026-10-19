@@ -52,7 +52,7 @@ export async function recordUndoSnapshot<S>(prior: SessionState<S>): Promise<voi
 // moves to (and including) the human move that triggered them; otherwise revert just
 // that one move. (An all-AI history has no human anchor, so it reverts a single move.)
 // Returns the restored state + how many actions were reverted, or null if nothing to
-// undo. NOTE: a human "report" mid-AI-turn (e.g. confirming a Feds catch) is itself a
+// undo. NOTE: a human "report" mid-AI-turn (e.g. a Detective deciding a block) is itself a
 // human action, so the sweep stops there — a second undo continues further back.
 export async function undoSession(
   sessionId: string,

@@ -24,7 +24,7 @@
 //     fallback (default 200).
 //
 // Performance: each iteration is ~1 clone + N applyMove calls (= rollout
-// depth). On medium-state games (Ankh, Dragonwood, Arcs at ~30µs/clone) a
+// depth). On medium-state games (around 30µs per clone) a
 // 1-second budget yields ~400-1000 simulations. That's enough to clearly
 // outperform 1-ply heuristics; not enough to compete with AlphaGo-tier
 // engines, but no game in this repo demands that.
