@@ -7,3 +7,6 @@ dist/
 .env.local
 coverage/
 /data/
+
+# Upload files made for npm publishing
+.publish/
