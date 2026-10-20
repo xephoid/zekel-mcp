@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "description": "The interface a zekel game implements (Game, SessionState, GameError) and the shared helpers games may use.",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xephoid/zekel-mcp.git",
+    "directory": "packages/game-kit"
+  },
+  "homepage": "https://github.com/xephoid/zekel-mcp#readme",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,7 +19,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "publishConfig": {
     "access": "public"

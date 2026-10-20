@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "description": "A bare MCP server for turn-based board games: sessions, seats, moves, AI turns, multi-device join. Holds no game rules; games are registered from outside.",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xephoid/zekel-mcp.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/xephoid/zekel-mcp#readme",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,7 +20,8 @@
   },
   "files": [
     "dist",
-    "schemas"
+    "schemas",
+    "README.md"
   ],
   "publishConfig": {
     "access": "public"
