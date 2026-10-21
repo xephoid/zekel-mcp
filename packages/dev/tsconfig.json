@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "**/__tests__/**", "**/*.test.ts"],
+  "references": [{ "path": "../game-kit" }, { "path": "../mcp" }]
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@zekel/dev",
+  "version": "0.1.0",
+  "description": "Tools for building and checking a game for the Zekel MCP server: AI-vs-AI batches and balance analysis, the desync, relay, assistant and integration bots, the rules checker, and the spoken-text and choice-catalog checks.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xephoid/zekel-mcp.git",
+    "directory": "packages/dev"
+  },
+  "homepage": "https://github.com/xephoid/zekel-mcp#readme",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@zekel/game-kit": "workspace:^",
+    "@zekel/mcp": "workspace:^",
+    "zod": "4.4.3"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}
