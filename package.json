@@ -2,11 +2,11 @@
   "name": "zekel-mcp-workspace",
   "private": true,
   "type": "module",
-  "description": "zekel-mcp: a bare MCP server for turn-based board games (sessions, seats, moves; no game rules), plus @zekel/game-kit, the interface games implement.",
+  "description": "zekel-mcp: a bare MCP server for turn-based board games (sessions, seats, moves; no game rules), plus @zekel/game-kit, the interface games implement, and @zekel/dev, the tools for building and checking a game.",
   "license": "Apache-2.0",
   "scripts": {
-    "build": "tsc -b packages/game-kit packages/mcp",
-    "typecheck": "tsc -b packages/game-kit packages/mcp",
+    "build": "tsc -b packages/game-kit packages/mcp packages/dev",
+    "typecheck": "tsc -b packages/game-kit packages/mcp packages/dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "schemas": "tsx packages/mcp/scripts/export-output-schemas.ts",
@@ -22,7 +22,8 @@
     "@types/jsdom": "^28.0.3",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "@zekel/dev": "workspace:*"
   },
   "engines": {
     "node": ">=22.13.0"

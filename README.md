@@ -4,12 +4,13 @@ An MCP server for turn-based board games, with no games built in.
 
 It keeps track of sessions, seats and moves. It runs AI turns, lets a second player join from another device, saves sessions (MongoDB, SQLite or memory), and offers numbered move menus, rules teaching and a web debug page. It knows no game rules: you register games, and every rule lives in them.
 
-## The two packages
+## The packages
 
 | Package | What it is |
 |---|---|
 | `@zekel/game-kit` (`packages/game-kit`) | What a game is built against: the `Game` interface, `SessionState`, `GameError`, and shared helpers (a seeded random-number helper, an MCTS search, seat names, rules sections, setup choices, the game log). It depends on nothing. |
 | `@zekel/mcp` (`packages/mcp`) | The server. It depends on `@zekel/game-kit` and the MCP SDK. |
+| `@zekel/dev` (`packages/dev`) | Tools for building and checking a game: AI-vs-AI batches and balance analysis, bots that play through a language model, the rules checker, and checks on spoken text. See `packages/dev/README.md`. |
 
 A game imports only `@zekel/game-kit`. A program that serves games depends on `@zekel/mcp`, registers its games and starts the server:
 
@@ -31,7 +32,7 @@ Needs Node 22.13 or later and pnpm.
 
 ```
 pnpm install
-pnpm build      # builds both packages
+pnpm build      # builds the packages
 pnpm test       # the unit tests
 pnpm smoke      # plays a whole game of the example through the real MCP tools
 ```
