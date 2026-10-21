@@ -85,7 +85,8 @@ const HARNESS_SAFETY_TURN_LIMIT = 5000;
 const PER_TURN_MOVE_CAP = 250;
 
 export interface HarnessOptions {
-  /** Path to the built MCP server entrypoint. Defaults to dist/index.js in the current folder. */
+  /** Path to the built MCP server entrypoint. Defaults to the project's server
+   *  (DevSetup.serverPath), else dist/index.js in the current folder. */
   serverPath?: string;
   /** Per-tool-call timeout in milliseconds. Larger AI games (e.g., Ollama-backed) may need higher. */
   callTimeoutMs?: number;
@@ -96,6 +97,17 @@ export interface HarnessOptions {
    * instead of the server's 1000ms default.
    */
   mctsBudgetMs?: number;
+}
+
+// The server a Harness starts when it is not given one. A project whose server
+// is not dist/index.js names its own with DevSetup.serverPath (runDevCommand
+// sets it here).
+let defaultServerPath: string | undefined;
+
+/** Set the server every Harness starts unless told otherwise; undefined goes
+ *  back to dist/index.js in the current folder. */
+export function setDefaultServerPath(path: string | undefined): void {
+  defaultServerPath = path === undefined ? undefined : resolve(path);
 }
 
 export class Harness {
@@ -109,8 +121,9 @@ export class Harness {
   private readonly mctsBudgetMs?: number;
 
   constructor(opts: HarnessOptions = {}) {
-    // The project's built server: dist/index.js in the folder the command runs from.
-    this.serverPath = opts.serverPath ?? resolve(process.cwd(), 'dist', 'index.js');
+    // The project's built server: the one it named, else dist/index.js in the
+    // folder the command runs from.
+    this.serverPath = opts.serverPath ?? defaultServerPath ?? resolve(process.cwd(), 'dist', 'index.js');
     this.callTimeoutMs = opts.callTimeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.mctsBudgetMs = opts.mctsBudgetMs;
   }

@@ -16,7 +16,7 @@ Tools for building and checking a game for the [Zekel MCP server](https://www.np
 | `check-summaries` | Checks every move's spoken summary (no seat ids, printed names, nothing hidden). |
 | `choice-catalog` | Prints a game's list of player decisions as a table. |
 
-Commands that play through the server start your built server (`dist/index.js` in the current folder, or `--server=<file>` where offered). The bots that use a language model need a local [Ollama](https://ollama.com); `integration-bot` needs LibreChat.
+Commands that play through the server start your built server: the `serverPath` you pass to `runDevCommand`, else `dist/index.js` in the current folder (`ai-harness --server=<file>` overrides both for one run). The bots that use a language model need a local [Ollama](https://ollama.com); `integration-bot` needs LibreChat.
 
 ## Using it
 
