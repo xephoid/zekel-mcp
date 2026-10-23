@@ -1,14 +1,14 @@
 #!/usr/bin/env tsx
 // Print a game's choice catalog as the POST-PORT.md §6 table.
 //
-// The catalog is the data (src/games/<game>/choices.ts); this renders it. Paste
+// The catalog is the data (each game's choices.ts); this renders it. Paste
 // the output into POST-PORT.md rather than hand-maintaining a second copy —
 // a hand-written table drifts from the code, which is how a game ends up with a
 // green table and decisions the player never gets to make.
 //
 // Examples:
-//   npx tsx scripts/choice-catalog.ts sweetlands-imperium
-//   npx tsx scripts/choice-catalog.ts --list
+//   choice-catalog sweetlands-imperium
+//   choice-catalog --list
 
 import { renderChoiceCatalog, validateChoiceCatalog } from '../core/choiceCatalog.js';
 import type { DevSetup } from './setup.js';
@@ -53,7 +53,7 @@ export async function main(argv: string[], setup: DevSetup): Promise<void> {
   process.stdout.write(
     `${catalog.length} decisions: ${player} the player makes, ${auto} the engine settles ` +
       '(each with a stated reason). Generated from `choices.ts` by ' +
-      '`npx tsx scripts/choice-catalog.ts ' + game.id + '` — edit the code, not this table.\n\n',
+      '`choice-catalog ' + game.id + '` — edit the code, not this table.\n\n',
   );
   process.stdout.write(renderChoiceCatalog(catalog));
   process.stdout.write('\n');

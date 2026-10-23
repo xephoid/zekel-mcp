@@ -2,7 +2,7 @@
 // via src/harness/dashboardHtml.ts, from either input the harness produces:
 //
 //  A) Aggregated-analysis JSONs (the scale path — pairs with --no-game-files):
-//       pnpm exec tsx scripts/balance-dashboard.ts --game=<id> \
+//       balance-dashboard --game=<id> \
 //         --analysis "Medium skill=out/ff-medium.analysis.json" \
 //         --analysis "Hard skill=out/ff-hard.analysis.json" --out=<file.html>
 //     One tab per label (× player count if a file holds several scenarios).
@@ -12,12 +12,12 @@
 //     and ':' is unusable on Windows drive letters).
 //
 //  B) Per-game record directories (small runs, retroactive):
-//       pnpm exec tsx scripts/balance-dashboard.ts --game=<id> [--dir=./harness-out]
+//       balance-dashboard --game=<id> [--dir=./harness-out]
 //     Discovers <dir>/<game>/<Np>/seed-*.json and re-runs analyzeBatch, so the
 //     dashboard always agrees with the markdown summary for the same data.
 //
 //  C) A/B comparison (the §6.3 holdout loop as a deliverable):
-//       pnpm exec tsx scripts/balance-dashboard.ts --game=<id> --compare \
+//       balance-dashboard --game=<id> --compare \
 //         --analysis "before=out/a.analysis.json" --analysis "after=out/b.analysis.json"
 //     Renders deltas per metric, each gated on 95%-range separation (§6.2) —
 //     unclaimed differences are explicitly labelled noise.
@@ -62,7 +62,7 @@ function parseCli(argv: string[]): Cli {
   });
   if (!values.game) {
     console.error(
-      'Usage: tsx scripts/balance-dashboard.ts --game=<id> [--analysis "<label>=<file.json>" ...] [--compare] [--dir=./harness-out] [--out=<file.html>] [--title=<name>] [--min-sample=20]',
+      'Usage: balance-dashboard --game=<id> [--analysis "<label>=<file.json>" ...] [--compare] [--dir=./harness-out] [--out=<file.html>] [--title=<name>] [--min-sample=20]',
     );
     process.exit(1);
   }

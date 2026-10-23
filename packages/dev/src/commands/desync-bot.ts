@@ -5,15 +5,16 @@
 // unnoticed. The headline number is silent_turns.
 //
 // Examples:
-//   tsx scripts/desync-bot.ts --game=sweetlands-imperium --players=3 --seed=1
-//   tsx scripts/desync-bot.ts --game=sweetlands-imperium --seed=2 --assistant=qwen3.6:35b
+//   desync-bot --game=sweetlands-imperium --players=3 --seed=1
+//   desync-bot --game=sweetlands-imperium --seed=2 --assistant=qwen3.6:35b
 
 import { parseArgs } from 'node:util';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { DesyncBot, type DesyncPlayer, type DesyncResult } from '../harness/desyncBot.js';
 
-const DEFAULT_BASE_URL = 'http://192.168.68.100:11434';
+// The Ollama server: OLLAMA_BASE_URL if set, else this machine.
+const DEFAULT_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
 const DEFAULT_MODEL = 'qwen3.6:35b';
 
 function parseCli(argv: string[]) {
@@ -50,7 +51,7 @@ function parseCli(argv: string[]) {
   if (values.mode !== 'imperative' && values.mode !== 'freeform') {
     throw new Error(`--mode must be "imperative" or "freeform", got "${values.mode}"`);
   }
-  if (!values.game) throw new Error('Usage: tsx scripts/desync-bot.ts --game=<id> [--players=K] [--seed=S] [--human-seat=N] [--assistant=M] [--human=M] [--out=DIR]');
+  if (!values.game) throw new Error('Usage: desync-bot --game=<id> [--players=K] [--seed=S] [--human-seat=N] [--assistant=M] [--human=M] [--out=DIR]');
   return {
     game: values.game,
     players: Number(values.players),

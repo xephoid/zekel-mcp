@@ -2,7 +2,7 @@
 // turn: feed the directive + view, get back one move as JSON. No streaming.
 
 export interface OllamaConfig {
-  baseUrl: string; // e.g. http://192.168.68.100:11434
+  baseUrl: string; // e.g. http://localhost:11434
   model: string; // e.g. qwen3.6:35b
   temperature?: number; // default 0 — we want the model's best single answer
   think?: boolean; // qwen3.6 is a thinking model; default false for speed

@@ -3,11 +3,11 @@
 // real MCP client loop (next_step → get_legal_moves/suggest_move → apply_move),
 // with AI opponents, and reports flow/invariant violations. Catches crashes,
 // desyncs, wrong-pending-owner, missing directives, and self-rejected moves —
-// the human-path bugs the all-AI harness (scripts/ai-harness.ts) can't see.
+// the human-path bugs the all-AI harness (the ai-harness command) can't see.
 //
 // Examples:
-//   tsx scripts/engine-bot.ts --game=sweetlands-imperium --n=5 --players=3
-//   tsx scripts/engine-bot.ts --game=fractured-fist --n=3 --players=2
+//   engine-bot --game=sweetlands-imperium --n=5 --players=3
+//   engine-bot --game=fractured-fist --n=3 --players=2
 
 import { parseArgs } from 'node:util';
 import { EngineBot, type EngineBotPlayer, type EngineBotResult } from '../harness/engineBot.js';
@@ -23,7 +23,7 @@ function parseCli(argv: string[]): { game: string; n: number; playerCount: numbe
     },
   });
   if (!values.game) {
-    throw new Error('Usage: tsx scripts/engine-bot.ts --game=<id> [--n=N] [--players=K] [--seed=S]');
+    throw new Error('Usage: engine-bot --game=<id> [--n=N] [--players=K] [--seed=S]');
   }
   return {
     game: values.game,
