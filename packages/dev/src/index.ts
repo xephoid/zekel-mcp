@@ -7,9 +7,11 @@
 //   2. It runs a command with runDevCommand, passing its list of games.
 //
 // Commands that play through the server (ai-harness, the bots) start the
-// project's built server, dist/index.js in the current folder by default.
+// project's built server: DevSetup.serverPath, or dist/index.js in the current
+// folder by default.
 
 import type { DevSetup } from './commands/setup.js';
+import { setDefaultServerPath } from './harness/runner.js';
 
 export type { DevSetup } from './commands/setup.js';
 export {
@@ -55,6 +57,7 @@ export async function runDevCommand(name: string, argv: string[], setup: DevSetu
     return;
   }
   const args = argv[0] === '--' ? argv.slice(1) : argv;
+  setDefaultServerPath(setup.serverPath);
   try {
     await (await load())(args, setup);
   } catch (e) {
