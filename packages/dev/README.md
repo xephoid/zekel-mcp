@@ -16,7 +16,7 @@ Tools for building and checking a game for the [Zekel MCP server](https://www.np
 | `check-summaries` | Checks every move's spoken summary (no seat ids, printed names, nothing hidden). |
 | `choice-catalog` | Prints a game's list of player decisions as a table. |
 
-Commands that play through the server start your built server: the `serverPath` you pass to `runDevCommand`, else `dist/index.js` in the current folder (`ai-harness --server=<file>` overrides both for one run). The bots that use a language model need a local [Ollama](https://ollama.com); `integration-bot` needs LibreChat.
+Commands that play through the server start your built server: the `serverPath` you pass to `runDevCommand`, else `dist/index.js` in the current folder (`ai-harness --server=<file>` overrides both for one run). The bots that use a language model need [Ollama](https://ollama.com): they look for it at `OLLAMA_BASE_URL` if set, else `http://localhost:11434` (`--base-url` overrides). `integration-bot` needs LibreChat; its addresses default to this machine and are set with `LIBRECHAT_URL`, `ZEKEL_MCP_URL` and `PLAYER_BASE_URL`.
 
 ## Using it
 
@@ -37,6 +37,10 @@ await runDevCommand(name!, args, { games: [myGame] });
 ```
 tsx scripts/dev.ts ai-harness --game=my-game --n=50 --players=2
 ```
+
+## The runbooks
+
+The `docs/` folder holds the step-by-step guides for taking a game from its rulebook to finished: planning, building, the post-port check, the AI, the desync, relay, balance and integration checks, and drawing the board. They say when to run each tool and what its output means. Start at [docs/README.md](./docs/README.md). They ship inside the package, so `node_modules/@zekel/dev/docs/` holds the guides that match the tools you installed.
 
 The tools' inner files can be imported as `@zekel/dev/<path>` (for example `@zekel/dev/harness/analysis`) for writing dev hooks; anything beyond the main entry point may change in any release.
 

@@ -530,7 +530,7 @@ function setSteps() {
 }
 
 // ---------- board host (docs/board-viz.md) ----------
-// If the game ships a glue module (src/games/<id>/viz/board.ts, served at
+// If the game ships a glue module (its viz/board.ts, served at
 // /web/games/<id>/viz/board.js), render the live board with the zekel-*
 // component library. The library is loaded up front so glue modules never
 // import browser paths themselves (host contract, src/web/host.ts).

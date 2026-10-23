@@ -1,9 +1,9 @@
 // Run the divergence hunter or its random-play control against a game engine
 // (docs/rules-verification.md).
 //
-//   pnpm tsx scripts/verify-hunt.ts --game=cybernoir-2127 --mode=random --games=500
-//   pnpm tsx scripts/verify-hunt.ts --game=cybernoir-2127 --mode=hunt --pop=40 --gens=15 --games-per=12
-//   pnpm tsx scripts/verify-hunt.ts --game=cybernoir-2127 --mode=versus --role=hacker --difficulty=hard
+//   verify-hunt --game=cybernoir-2127 --mode=random --games=500
+//   verify-hunt --game=cybernoir-2127 --mode=hunt --pop=40 --gens=15 --games-per=12
+//   verify-hunt --game=cybernoir-2127 --mode=versus --role=hacker --difficulty=hard
 //
 // versus: win-scored evolution against the game's own AI — an exploit finder
 // for the AI ladder. Reports the champion strategy in words, its HELD-OUT win

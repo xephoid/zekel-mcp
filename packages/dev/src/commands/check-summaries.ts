@@ -4,7 +4,7 @@
 // every AI narration through core/spokenText.ts. Post-port runs this; a clean
 // result is required for a game zekel Live reads aloud.
 //
-//   pnpm tsx scripts/check-summaries.ts --game=fractured-fist [--games=5] [--players=2]
+//   check-summaries --game=fractured-fist [--games=5] [--players=2]
 //
 // Exit code 1 when any string breaks a rule. Mechanical checks only: a person
 // still reads a sample to judge whether it sounds right aloud.
@@ -21,7 +21,7 @@ export async function main(argv: string[], setup: DevSetup): Promise<void> {
   };
   for (const g of setup.games ?? []) registerGame(g);
   const gameId = arg('game', '');
-  if (!gameId) throw new Error('Usage: tsx scripts/check-summaries.ts --game=<id> [--games=N] [--players=N]');
+  if (!gameId) throw new Error('Usage: check-summaries --game=<id> [--games=N] [--players=N]');
   const game = getGame(gameId);
   const games = Number(arg('games', '5'));
   const players = Number(arg('players', String(game.minPlayers)));

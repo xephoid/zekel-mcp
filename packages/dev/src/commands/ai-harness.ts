@@ -4,9 +4,9 @@
 // src/harness/metrics.ts.
 //
 // Examples:
-//   tsx scripts/ai-harness.ts --game=fractured-fist --n=100 --players=2
-//   tsx scripts/ai-harness.ts --game=sweetlands-imperium --n=20 --players=2,3,4
-//   tsx scripts/ai-harness.ts --game=fractured-fist --n=5 --players=2
+//   ai-harness --game=fractured-fist --n=100 --players=2
+//   ai-harness --game=sweetlands-imperium --n=20 --players=2,3,4
+//   ai-harness --game=fractured-fist --n=5 --players=2
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve as resolvePath, join, dirname } from 'node:path';
@@ -74,7 +74,7 @@ interface CliArgs {
   strictCoverage: boolean;
   // Write the aggregated BatchAnalysis (one per scenario) as JSON to this path.
   // The companion to --no-game-files at scale: the balance dashboard
-  // (scripts/balance-dashboard.ts --analysis=...) consumes this directly, so a
+  // (the balance-dashboard command, with --analysis=...) consumes this directly, so a
   // 1000-game run needs no per-game record files.
   analysisJson?: string;
 }
@@ -119,7 +119,7 @@ function parseCli(argv: string[]): CliArgs {
   });
   const game = values.game as string | undefined;
   if (!game) {
-    console.error('Usage: tsx scripts/ai-harness.ts --game=<id> [--n=50] [--players=2,3,4] [--difficulty=medium | --difficulty=mcts,medium,medium] [--mcts-budget-ms=200] [--seed=1] [--parallel=4] [--out-dir=./harness-out] [--quiet] [--scenario=<scenario_id>] [--game-options=<json merged into createSession options>]');
+    console.error('Usage: ai-harness --game=<id> [--n=50] [--players=2,3,4] [--difficulty=medium | --difficulty=mcts,medium,medium] [--mcts-budget-ms=200] [--seed=1] [--parallel=4] [--out-dir=./harness-out] [--quiet] [--scenario=<scenario_id>] [--game-options=<json merged into createSession options>]');
     process.exit(2);
   }
   const n = Number(values.n);

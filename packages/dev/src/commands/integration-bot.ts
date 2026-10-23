@@ -8,8 +8,8 @@
 // Process: docs/integration-runbook.md. Run --check first to verify plumbing.
 //
 // Examples:
-//   tsx scripts/integration-bot.ts --game=cybernoir-2127 --check
-//   tsx scripts/integration-bot.ts --game=cybernoir-2127 --agent-id=agent_abc123
+//   integration-bot --game=cybernoir-2127 --check
+//   integration-bot --game=cybernoir-2127 --agent-id=agent_abc123
 //
 // Env: LIBRECHAT_EMAIL, LIBRECHAT_PASSWORD  — the bot's LibreChat account
 //      PLAYER_BASE_URL, PLAYER_API_KEY      — OpenAI-compatible player endpoint
@@ -38,10 +38,12 @@ function loadDotEnv(): void {
 }
 loadDotEnv();
 
-const DEFAULT_LIBRECHAT_URL = 'https://libre-zekel.ngrok.app';
-const DEFAULT_MCP_URL = 'https://zekel.ngrok.app/mcp';
-// The player runs on the Ollama box via its OpenAI-compatible /v1 surface.
-const DEFAULT_PLAYER_BASE_URL = 'http://192.168.68.100:11434/v1';
+// Defaults are this machine; set LIBRECHAT_URL, ZEKEL_MCP_URL and
+// PLAYER_BASE_URL (or OLLAMA_BASE_URL) in the environment or .env otherwise.
+const DEFAULT_LIBRECHAT_URL = 'http://localhost:3080';
+const DEFAULT_MCP_URL = 'http://localhost:3000/mcp';
+// The player runs on Ollama via its OpenAI-compatible /v1 surface.
+const DEFAULT_PLAYER_BASE_URL = (process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434') + '/v1';
 const DEFAULT_PLAYER_MODEL = 'kimi-k2.7-code:cloud';
 // LibreChat's uaParser middleware rejects any request whose User-Agent does not
 // parse as a browser ("Illegal request" + a NON_BROWSER violation), so every
@@ -86,7 +88,7 @@ function parseCli(argv: string[]) {
   });
   if (!values.game) {
     throw new Error(
-      'Usage: tsx scripts/integration-bot.ts --game=<id> [--check] [--agent-id=A | --endpoint=E --model=M]',
+      'Usage: integration-bot --game=<id> [--check] [--agent-id=A | --endpoint=E --model=M]',
     );
   }
   return {
@@ -100,7 +102,9 @@ function parseCli(argv: string[]) {
     playerBaseUrl: values['player-base-url']?.replace(/\/$/, ''),
     playerName: values['player-name']!,
     role: values.role,
-    guidePath: values.guide ?? `src/games/${values.game}/STRATEGY-GUIDE.md`,
+    // Where the game keeps its guide: packages/<id>/ (a repo of game packages)
+    // or src/games/<id>/ (games inside the server's repo). --guide wins.
+    guidePath: values.guide ?? ([`packages/${values.game}/STRATEGY-GUIDE.md`, `src/games/${values.game}/STRATEGY-GUIDE.md`].find((p) => existsSync(p)) ?? `packages/${values.game}/STRATEGY-GUIDE.md`),
     maxExchanges: Number(values['max-exchanges']),
     replyTimeoutMs: Number(values['reply-timeout-s']) * 1000,
     outDir: values.out!,

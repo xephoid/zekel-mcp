@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 // Human-seat conformance sweep — the programmatic half of post-port §5/§7.
 //
-// The all-AI harness (scripts/ai-harness.ts) never drives the human-facing
+// The all-AI harness (the ai-harness command) never drives the human-facing
 // surface, so an engine that auto-resolves a human-owned choice, strands a
 // human-owed pending, or routes a directive to the wrong seat runs clean games
 // and looks fully playable. This sweep drives ONE seat as a human through the

@@ -9,15 +9,16 @@
 // Needs a reachable ollama server with both models pulled.
 //
 // Examples:
-//   tsx scripts/assistant-bot.ts --game=sweetlands-imperium --players=3 --max-human-turns=8
-//   tsx scripts/assistant-bot.ts --game=sweetlands-imperium --assistant=qwen3.6:35b --human=qwen3.5:9b --out=./harness-out
+//   assistant-bot --game=sweetlands-imperium --players=3 --max-human-turns=8
+//   assistant-bot --game=sweetlands-imperium --assistant=qwen3.6:35b --human=qwen3.5:9b --out=./harness-out
 
 import { parseArgs } from 'node:util';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AssistantBot, type AssistantPlayer, type AssistantGameResult } from '../harness/assistantBot.js';
 
-const DEFAULT_BASE_URL = 'http://192.168.68.100:11434';
+// The Ollama server: OLLAMA_BASE_URL if set, else this machine.
+const DEFAULT_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
 const DEFAULT_ASSISTANT = 'qwen3.6:35b';
 const DEFAULT_HUMAN = 'qwen3.6:35b';
 
@@ -47,7 +48,7 @@ function parseCli(argv: string[]): Cli {
     },
   });
   if (!values.game) {
-    throw new Error('Usage: tsx scripts/assistant-bot.ts --game=<id> [--players=K] [--seed=S] [--assistant=M] [--human=M] [--base-url=URL] [--max-human-turns=N] [--out=DIR]');
+    throw new Error('Usage: assistant-bot --game=<id> [--players=K] [--seed=S] [--assistant=M] [--human=M] [--base-url=URL] [--max-human-turns=N] [--out=DIR]');
   }
   return {
     game: values.game,

@@ -2,7 +2,7 @@
 // spoken-text conventions (docs/spoken-narration.md). The summary is the
 // canonical per-move string: zekel Live reads it aloud as-is and text clients
 // show it as-is, so it must read naturally and never expose engine internals.
-// Used by scripts/check-summaries.ts (post-port) — mechanical checks only; a
+// Used by the check-summaries command (post-port) — mechanical checks only; a
 // human still reads a sample for whether it sounds right.
 
 export interface SpokenTextProblem {

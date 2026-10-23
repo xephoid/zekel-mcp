@@ -1,7 +1,7 @@
 // The board-host contract (docs/board-viz.md, docs/viz-runbook.md).
 //
 // A game opts into board rendering by shipping a GLUE MODULE at
-// `src/games/<game-id>/viz/board.ts` (compiled and served to the browser at
+// the game's `viz/board.ts` (compiled and served to the browser at
 // `/web/games/<game-id>/viz/board.js`). The debug client's board host
 // dynamically imports it and calls `renderBoard` after every state refresh.
 //

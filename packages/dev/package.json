@@ -1,6 +1,6 @@
 {
   "name": "@zekel/dev",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Tools for building and checking a game for the Zekel MCP server: AI-vs-AI batches and balance analysis, the desync, relay, assistant and integration bots, the rules checker, and the spoken-text and choice-catalog checks.",
   "license": "Apache-2.0",
   "repository": {
@@ -24,6 +24,7 @@
   },
   "files": [
     "dist",
+    "docs",
     "README.md"
   ],
   "publishConfig": {

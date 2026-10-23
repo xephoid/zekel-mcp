@@ -8,14 +8,15 @@
 // Needs a reachable ollama server (default the LAN box). The model must be pulled.
 //
 // Examples:
-//   tsx scripts/llm-bot.ts --game=sweetlands-imperium --n=1 --players=3
-//   tsx scripts/llm-bot.ts --game=sweetlands-imperium --n=3 --model=qwen3.6:35b --think
-//   tsx scripts/llm-bot.ts --game=cybernoir-2127 --seed=1 --transcript
+//   llm-bot --game=sweetlands-imperium --n=1 --players=3
+//   llm-bot --game=sweetlands-imperium --n=3 --model=qwen3.6:35b --think
+//   llm-bot --game=cybernoir-2127 --seed=1 --transcript
 
 import { parseArgs } from 'node:util';
 import { LlmBot, type LlmBotPlayer, type LlmBotResult, type TurnOutcome } from '../harness/llmBot.js';
 
-const DEFAULT_BASE_URL = 'http://192.168.68.100:11434';
+// The Ollama server: OLLAMA_BASE_URL if set, else this machine.
+const DEFAULT_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
 const DEFAULT_MODEL = 'qwen3.6:35b';
 
 interface Cli {
@@ -45,7 +46,7 @@ function parseCli(argv: string[]): Cli {
   });
   if (!values.game) {
     throw new Error(
-      'Usage: tsx scripts/llm-bot.ts --game=<id> [--n=N] [--players=K] [--seed=S] [--model=M] [--base-url=URL] [--think] [--transcript]',
+      'Usage: llm-bot --game=<id> [--n=N] [--players=K] [--seed=S] [--model=M] [--base-url=URL] [--think] [--transcript]',
     );
   }
   return {

@@ -1,6 +1,6 @@
 // Game-agnostic AI testing harness. Spawns the built MCP server as a child
-// process, talks via raw JSON-RPC over stdio (matching the existing
-// scripts/smoke-mcp.mjs pattern), and runs AI-vs-AI games end-to-end.
+// process, talks via raw JSON-RPC over stdio (the same approach as
+// scripts/smoke.mjs), and runs AI-vs-AI games end-to-end.
 //
 // Per the plan, this layer is game-agnostic: it calls the standard tool
 // surface (`create_session`, `get_ai_move`, `is_game_over`, `get_state`)

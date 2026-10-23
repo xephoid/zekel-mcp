@@ -5,11 +5,11 @@
 // shadow session → canonical state diff vs reality (the desync metric).
 //
 //   scout (no LLM): rank every AI batch of a seeded game by relay complexity
-//     tsx scripts/relay-bot.ts --game=sweetlands-imperium --players=2 --seed=1 --mode=scout
+//     relay-bot --game=sweetlands-imperium --players=2 --seed=1 --mode=scout
 //   probe: round-trip the K most complex batches, N reps each
-//     tsx scripts/relay-bot.ts --game=sweetlands-imperium --seed=1 --mode=probe --probes=3 --reps=3
+//     relay-bot --game=sweetlands-imperium --seed=1 --mode=probe --probes=3 --reps=3
 //   full: round-trip EVERY AI batch of a whole game (the endgame gate)
-//     tsx scripts/relay-bot.ts --game=sweetlands-imperium --seed=1 --mode=full
+//     relay-bot --game=sweetlands-imperium --seed=1 --mode=full
 //   --calibrate: skip the relayer, feed the reader the raw JSON — the reader's
 //     ceiling every live score is read against.
 //   --spoken: skip the relayer, feed the reader ONLY each move's state_summary,
@@ -21,7 +21,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { RelayBot, type RelayPlayer, type RelayBatch, type ScoutResult } from '../harness/relayBot.js';
 
-const DEFAULT_BASE_URL = 'http://192.168.68.100:11434';
+// The Ollama server: OLLAMA_BASE_URL if set, else this machine.
+const DEFAULT_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
 const DEFAULT_MODEL = 'qwen3.6:35b';
 
 function parseCli(argv: string[]) {
@@ -46,7 +47,7 @@ function parseCli(argv: string[]) {
   });
   if (!values.game || !['scout', 'probe', 'full'].includes(values.mode!)) {
     throw new Error(
-      'Usage: tsx scripts/relay-bot.ts --game=<id> --mode=scout|probe|full [--players=K] [--seed=S] [--human-seat=N] [--probes=K] [--reps=N] [--batches=i,j] [--calibrate|--spoken] [--relayer=M] [--reader=M] [--out=DIR]',
+      'Usage: relay-bot --game=<id> --mode=scout|probe|full [--players=K] [--seed=S] [--human-seat=N] [--probes=K] [--reps=N] [--batches=i,j] [--calibrate|--spoken] [--relayer=M] [--reader=M] [--out=DIR]',
     );
   }
   return {
